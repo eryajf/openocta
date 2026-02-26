@@ -397,33 +397,38 @@ func buildAlertPrompt(body hooksPayloadAlert) string {
 	}
 
 	builder := &strings.Builder{}
-	builder.WriteString("你是一个资深 SRE/运维告警分析助手。")
-	builder.WriteString("下面是一条来自监控/告警系统的告警事件，请你：")
-	builder.WriteString("1）识别可能的根因；2）评估影响范围和紧急程度；3）给出分步骤排查建议；")
-	builder.WriteString("4）如有需要，给出临时缓解措施和后续优化建议。")
-	builder.WriteString("请用简体中文回答，并用结构化的小标题组织输出。\n\n")
+	builder.WriteString("You are a senior SRE/ops alert analysis assistant. ")
+	builder.WriteString("Below is an alert event from a monitoring/alerting system.\n\n")
+	builder.WriteString("## Important: Fetch data first, then analyze\n")
+	builder.WriteString("Before drawing conclusions, you MUST:\n")
+	builder.WriteString("1. **Use MCP tools**: If you have MCP servers connected (e.g. Prometheus, Grafana, log systems), actively call relevant tools to query metrics, alerts, logs, etc., and use real data to support your analysis. Examples: prometheus_query, prometheus_query_range, prometheus_alerts.\n")
+	builder.WriteString("2. **Use Skills**: If you have available Skills (e.g. Prometheus Analysis, log analysis), select relevant skills based on the alert content and follow their guidance for querying and interpretation.\n")
+	builder.WriteString("3. **Combine context**: Correlate data fetched from MCP/Skills with the alert payload below before inferring root cause and assessing impact.\n\n")
+	builder.WriteString("## Analysis requirements\n")
+	builder.WriteString("After fetching data, please: 1) identify possible root causes; 2) assess impact scope and urgency; 3) provide step-by-step troubleshooting suggestions; 4) if needed, provide temporary mitigation and follow-up optimization recommendations. ")
+	builder.WriteString("**Output your final response in Simplified Chinese**, using structured subheadings.\n\n")
 
-	builder.WriteString("【告警标题】\n")
+	builder.WriteString("【Alert Title】\n")
 	builder.WriteString(title + "\n\n")
 
-	builder.WriteString("【严重级别】\n")
+	builder.WriteString("【Severity】\n")
 	builder.WriteString(severity + "\n\n")
 
-	builder.WriteString("【来源系统】\n")
+	builder.WriteString("【Source】\n")
 	builder.WriteString(source + "\n\n")
 
 	if body.AlertID != "" {
-		builder.WriteString("【告警ID】\n")
+		builder.WriteString("【Alert ID】\n")
 		builder.WriteString(strings.TrimSpace(body.AlertID) + "\n\n")
 	}
 
 	if message != "" {
-		builder.WriteString("【告警描述】\n")
+		builder.WriteString("【Description】\n")
 		builder.WriteString(message + "\n\n")
 	}
 
 	if dataJSON != "" {
-		builder.WriteString("【原始数据(JSON)】\n")
+		builder.WriteString("【Raw Data (JSON)】\n")
 		builder.WriteString(dataJSON + "\n")
 	}
 
