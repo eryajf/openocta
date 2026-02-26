@@ -819,7 +819,7 @@ func ChatSendHandler(opts HandlerOpts) error {
 					if stopReason == "" && evt.Delta != nil {
 						stopReason = evt.Delta.StopReason
 					}
-					// Flush assistant message: thinking + toolCalls + text
+					// Flush assistant message: thinking + toolCalls + text (snapshot for this turn only)
 					if textBuf.Len() > 0 {
 						assistantContent = append(assistantContent, map[string]interface{}{"type": "text", "text": textBuf.String()})
 					}
@@ -829,9 +829,12 @@ func ChatSendHandler(opts HandlerOpts) error {
 						lastMessageID = msgID
 						ts := time.Now().UTC().Format(time.RFC3339)
 						tsMs := time.Now().UnixMilli()
+						// Snapshot content for transcript and broadcast so later appends don't mutate what we send
+						contentSnapshot := make([]map[string]interface{}, len(assistantContent))
+						copy(contentSnapshot, assistantContent)
 						msgBody := map[string]interface{}{
 							"role":      "assistant",
-							"content":   assistantContent,
+							"content":   contentSnapshot,
 							"timestamp": tsMs,
 						}
 						if usageSnapshot != nil {
@@ -859,10 +862,13 @@ func ChatSendHandler(opts HandlerOpts) error {
 						}
 						messageBody := map[string]interface{}{
 							"role":      "assistant",
-							"content":   assistantContent,
+							"content":   contentSnapshot,
 							"timestamp": tsMs,
 						}
 						broadcastChatFinal(ctxForBroadcast, runId, sessionKey, messageBody)
+						// Reset accumulators so next EventMessageStop (if any) does not include this turn's content
+						assistantContent = nil
+						textBuf.Reset()
 					} else if usageSnapshot != nil {
 						broadcastChatFinal(ctxForBroadcast, runId, sessionKey, map[string]interface{}{
 							"role": "assistant", "content": []map[string]interface{}{}, "timestamp": time.Now().UnixMilli(),
