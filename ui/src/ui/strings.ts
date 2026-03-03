@@ -1425,7 +1425,7 @@ const EN: Strings = {
 const ZH: Strings = {
   tabGroupChat: "聊天",
   tabGroupControl: "控制",
-  tabGroupAgent: "代理",
+  tabGroupAgent: "Agent",
   tabGroupSettings: "设置",
   subtitleAgents: "管理代理工作区、工具与身份。",
   subtitleOverview: "网关状态、入口与健康概览。",

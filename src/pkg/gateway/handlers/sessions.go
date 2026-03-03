@@ -12,6 +12,7 @@ import (
 	"github.com/openocta/openocta/pkg/agent/tools"
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/gateway/protocol"
+	"github.com/openocta/openocta/pkg/paths"
 	"github.com/openocta/openocta/pkg/session"
 )
 
@@ -1237,7 +1238,31 @@ func resolveDefaultAgentID(cfg *config.OpenOctaConfig) string {
 	return "main"
 }
 
-func listConfiguredAgentIDs(cfg *config.OpenOctaConfig) []string {
+// listExistingAgentIDsFromDisk scans ~/.openocta/agents/* for agent directories.
+// It is used to augment configured agents with any agents that already have
+// sessions on disk (e.g. created by channels or tools).
+func listExistingAgentIDsFromDisk(cfg *config.OpenOctaConfig, env func(string) string) []string {
+	stateDir := paths.ResolveStateDir(env)
+	agentsDir := filepath.Join(stateDir, "agents")
+	entries, err := os.ReadDir(agentsDir)
+	if err != nil {
+		return nil
+	}
+	var ids []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := strings.TrimSpace(strings.ToLower(entry.Name()))
+		if name == "" {
+			continue
+		}
+		ids = append(ids, normalizeAgentID(name))
+	}
+	return ids
+}
+
+func listConfiguredAgentIDs(cfg *config.OpenOctaConfig, env func(string) string) []string {
 	ids := make(map[string]bool)
 	if cfg != nil && cfg.Agents != nil && len(cfg.Agents.List) > 0 {
 		for _, agent := range cfg.Agents.List {
@@ -1250,7 +1275,13 @@ func listConfiguredAgentIDs(cfg *config.OpenOctaConfig) []string {
 	} else {
 		defaultID := normalizeAgentID(resolveDefaultAgentID(cfg))
 		ids[defaultID] = true
-		// TODO: Add listExistingAgentIDsFromDisk() if needed
+	}
+
+	// Augment with agents discovered on disk (e.g. created by channels or cron).
+	for _, diskID := range listExistingAgentIDsFromDisk(cfg, env) {
+		if diskID != "" {
+			ids[diskID] = true
+		}
 	}
 
 	// Sort and return
@@ -1319,7 +1350,7 @@ func loadCombinedSessionStoreForGateway(cfg *config.OpenOctaConfig, env func(str
 	}
 
 	// Multiple agent stores
-	agentIDs := listConfiguredAgentIDs(cfg)
+	agentIDs := listConfiguredAgentIDs(cfg, env)
 	combined := make(session.SessionStore)
 	firstStorePath := ""
 

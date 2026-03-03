@@ -256,7 +256,26 @@ func NewServer(addr string, version string) *Server {
 				if agentID == "" {
 					agentID = "main"
 				}
-				handlers.RunIsolatedAgentTurn(ctx, agentID, "cron:"+job.ID, message)
+				// 旧路径仍保留，但 sessionKey 统一为 agent:main:cron:<jobId>
+				handlers.RunIsolatedAgentTurn(ctx, agentID, "agent:main:cron:"+job.ID, message)
+			},
+			RunCronChat: func(job cron.CronJob, sessionKey, message string) {
+				if sessionKey == "" {
+					sessionKey = "agent:main:cron:" + job.ID
+				}
+				if ctx.InvokeMethod == nil {
+					return
+				}
+				// 使用稳定且合法的 sessionId 作为转录文件名，最终输出会在 chat.send 中写入
+				// ~/.openocta/cron/runs/<sessionId>.jsonl。
+				sessionID := job.ID
+				params := map[string]interface{}{
+					"sessionKey":     sessionKey,
+					"sessionId":      sessionID,
+					"message":        message,
+					"idempotencyKey": "cron:" + job.ID,
+				}
+				ctx.InvokeMethod("chat.send", params)
 			},
 		})
 		cronSvc.Start()

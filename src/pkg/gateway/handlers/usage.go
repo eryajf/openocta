@@ -182,7 +182,7 @@ func UsageCostHandler(opts HandlerOpts) error {
 	}
 	startMs, endMs := parseUsageCostDateRange(opts.Params)
 	env := func(k string) string { return os.Getenv(k) }
-	agentIDs := listConfiguredAgentIDs(cfg)
+	agentIDs := listConfiguredAgentIDs(cfg, env)
 	summary, err := session.LoadCostUsageSummary(agentIDs, startMs, endMs, env)
 	if err != nil || summary == nil {
 		summary = &session.CostUsageSummary{

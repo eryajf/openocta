@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,6 +17,57 @@ type Service struct {
 	store     *StoreFile
 	deps      *Deps
 	done      chan struct{}
+}
+
+// cronRunLogEntry mirrors the TS CronRunLogEntry used by the control UI run history.
+type cronRunLogEntry struct {
+	Ts          int64  `json:"ts"`
+	JobID       string `json:"jobId"`
+	Action      string `json:"action"`
+	Status      string `json:"status,omitempty"`
+	Error       string `json:"error,omitempty"`
+	Summary     string `json:"summary,omitempty"`
+	SessionID   string `json:"sessionId,omitempty"`
+	SessionKey  string `json:"sessionKey,omitempty"`
+	RunAtMs     *int64 `json:"runAtMs,omitempty"`
+	DurationMs  *int64 `json:"durationMs,omitempty"`
+	NextRunAtMs *int64 `json:"nextRunAtMs,omitempty"`
+}
+
+// resolveRunLogPath returns the JSONL run log path for a job ID.
+func (s *Service) resolveRunLogPath(jobID string) string {
+	dir := filepath.Dir(s.storePath)
+	return filepath.Join(dir, "runs", jobID+".jsonl")
+}
+
+// appendRunLogEntry appends one finished-action entry to the job's run log.
+func (s *Service) appendRunLogEntry(job CronJob, status, errMsg, summary, sessionKey string, runAtMs, durationMs, nextRunAtMs *int64) {
+	entry := cronRunLogEntry{
+		Ts:          time.Now().UnixMilli(),
+		JobID:       job.ID,
+		Action:      "finished",
+		Status:      status,
+		Error:       errMsg,
+		Summary:     summary,
+		SessionKey:  sessionKey,
+		RunAtMs:     runAtMs,
+		DurationMs:  durationMs,
+		NextRunAtMs: nextRunAtMs,
+	}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	path := s.resolveRunLogPath(job.ID)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(data, '\n'))
 }
 
 // SetDeps sets execution dependencies (call after creation from gateway).
@@ -141,6 +193,9 @@ func (s *Service) Remove(id string) error {
 
 // Run runs a job by ID. mode is "due" or "force".
 func (s *Service) Run(id string, mode string) error {
+	startMs := time.Now().UnixMilli()
+
+	// Snapshot job and deps under lock so we can safely execute without holding the mutex.
 	s.mu.Lock()
 	var job *CronJob
 	for i := range s.store.Jobs {
@@ -153,41 +208,92 @@ func (s *Service) Run(id string, mode string) error {
 		s.mu.Unlock()
 		return nil
 	}
+	jobCopy := *job
 	deps := s.deps
 	s.mu.Unlock()
 
-	now := time.Now().UnixMilli()
-	if job.SessionTarget == "main" {
-		if job.Payload.Kind != "systemEvent" {
-			return nil
+	status := "ok"
+	errMsg := ""
+	var sessionKey string
+
+	// Validate payload/sessionTarget combinations (mirrors TS semantics).
+	if jobCopy.SessionTarget == "main" {
+		if jobCopy.Payload.Kind != "systemEvent" {
+			status = "skipped"
+			errMsg = `main job requires payload.kind="systemEvent"`
 		}
-		text := job.Payload.Text
-		if deps != nil && deps.EnqueueSystemEvent != nil {
-			deps.EnqueueSystemEvent(text)
-		}
-		if job.WakeMode == "now" && deps != nil && deps.RequestHeartbeatNow != nil {
-			deps.RequestHeartbeatNow("cron:" + id)
-		}
-	} else if job.SessionTarget == "isolated" && job.Payload.Kind == "agentTurn" {
-		message := job.Payload.Message
-		if deps != nil && deps.RunIsolatedAgentJob != nil {
-			deps.RunIsolatedAgentJob(*job, message)
+	} else if jobCopy.SessionTarget == "isolated" {
+		if jobCopy.Payload.Kind != "agentTurn" {
+			status = "skipped"
+			errMsg = `isolated job requires payload.kind="agentTurn"`
+		} else {
+			// 对于隔离会话，统一使用 agent:main:cron:<jobId> 作为 sessionKey，
+			// 便于网关和 UI 统一识别和管理 cron 会话。
+			sessionKey = "agent:main:cron:" + jobCopy.ID
 		}
 	}
 
+	// Execute side effects when not skipped and deps are available.
+	if status != "skipped" {
+		if deps == nil {
+			status = "error"
+			errMsg = "cron deps not configured"
+		} else if jobCopy.SessionTarget == "main" && jobCopy.Payload.Kind == "systemEvent" {
+			if deps.EnqueueSystemEvent != nil {
+				deps.EnqueueSystemEvent(jobCopy.Payload.Text)
+			}
+			if jobCopy.WakeMode == "now" && deps.RequestHeartbeatNow != nil {
+				deps.RequestHeartbeatNow("agent:main:cron:" + id)
+			}
+		} else if jobCopy.SessionTarget == "isolated" && jobCopy.Payload.Kind == "agentTurn" {
+			// Prefer RunCronChat so that cron runs go through chat.send and
+			// produce proper transcripts and session store entries. Fall back
+			// to RunIsolatedAgentJob for backwards compatibility.
+			if deps.RunCronChat != nil {
+				deps.RunCronChat(jobCopy, sessionKey, jobCopy.Payload.Message)
+			} else if deps.RunIsolatedAgentJob != nil {
+				deps.RunIsolatedAgentJob(jobCopy, jobCopy.Payload.Message)
+			}
+		}
+	}
+
+	endMs := time.Now().UnixMilli()
+	durationMs := endMs - startMs
+
+	// Update job state and persist.
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	var nextRunAtMs *int64
 	for i := range s.store.Jobs {
 		if s.store.Jobs[i].ID == id {
-			s.store.Jobs[i].State.LastRunAtMs = &now
-			s.store.Jobs[i].State.LastStatus = "ok"
+			s.store.Jobs[i].State.LastRunAtMs = &endMs
+			s.store.Jobs[i].State.LastStatus = status
+			if errMsg != "" {
+				s.store.Jobs[i].State.LastError = errMsg
+			} else {
+				s.store.Jobs[i].State.LastError = ""
+			}
 			s.store.Jobs[i].State.RunningAtMs = nil
-			next := ComputeNextRunAtMs(s.store.Jobs[i].Schedule, now)
+			s.store.Jobs[i].State.LastDurationMs = &durationMs
+			if status == "ok" {
+				s.store.Jobs[i].State.ConsecutiveErrors = 0
+			} else if status == "error" {
+				s.store.Jobs[i].State.ConsecutiveErrors++
+			}
+			next := ComputeNextRunAtMs(s.store.Jobs[i].Schedule, endMs)
 			s.store.Jobs[i].State.NextRunAtMs = &next
+			nextRunAtMs = &next
 			_ = SaveStore(s.storePath, s.store)
+			// Use the full job value for logging.
+			jobCopy = s.store.Jobs[i]
 			break
 		}
 	}
+
+	// Append run log entry without holding the lock.
+	runAt := startMs
+	s.appendRunLogEntry(jobCopy, status, errMsg, "", sessionKey, &runAt, &durationMs, nextRunAtMs)
+
 	return nil
 }
 

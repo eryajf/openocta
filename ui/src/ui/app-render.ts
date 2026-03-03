@@ -135,11 +135,11 @@ export function renderApp(state: AppViewState) {
           </button>
           <div class="brand">
             <div class="brand-logo">
-              <img src=${basePath ? `${basePath}/favicon.svg` : "/favicon.svg"} alt="OpenClaw" />
-            </div>
-            <div class="brand-text">
-              <div class="brand-title">OPENOCTA</div>
-              <div class="brand-sub">Gateway Dashboard</div>
+              <img
+                src=${basePath ? `${basePath}/favicon.svg` : "/favicon.svg"}
+                alt="OpenOcta"
+                style="width: 128px; height: 32px;"
+              />
             </div>
           </div>
         </div>
@@ -186,7 +186,7 @@ export function renderApp(state: AppViewState) {
           <div class="nav-group__items">
             <a
               class="nav-item nav-item--external"
-              href="https://docs.openocta.ai"
+              href="https://databuff.yuque.com/org-wiki-databuff-spr8e6/lqn7on/nd9nghq03n2nymz0"
               target="_blank"
               rel="noreferrer"
               title="Docs (opens in new tab)"

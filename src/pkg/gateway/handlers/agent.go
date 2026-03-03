@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -177,4 +178,79 @@ func RunIsolatedAgentTurn(ctx *Context, agentID string, sessionKey string, messa
 		}
 	}
 	_, _ = rt.Run(runCtx, api.Request{Prompt: prompt, SessionID: sessionKey})
+}
+
+// RunCronAgentOnce runs one non-streaming agent turn for a cron job and returns the output text.
+// It mirrors RunIsolatedAgentTurn but exposes the model output so callers can persist it.
+func RunCronAgentOnce(ctx *Context, agentID string, sessionKey string, message string) (string, error) {
+	if ctx == nil {
+		return "", fmt.Errorf("nil gateway context")
+	}
+	runCtx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	var modelFactory api.ModelFactory
+	if ctx.Config != nil {
+		factory, err := agent.CreateModelFactoryFromConfig(ctx.Config, agentID)
+		if err != nil {
+			modelFactory = runtime.DefaultModelFactory()
+		} else {
+			modelFactory = factory
+		}
+	} else {
+		modelFactory = runtime.DefaultModelFactory()
+	}
+
+	var invoker tools.GatewayInvoker
+	if ctx.InvokeMethod != nil {
+		invoker = &gatewayInvokerAdapter{invoke: ctx.InvokeMethod}
+	}
+	agentTools := tools.DefaultToolsWithInvoker(invoker)
+	if ctx.MCPTools != nil {
+		if mcpTools, mcpErr := ctx.MCPTools(runCtx); mcpErr == nil && len(mcpTools) > 0 {
+			agentTools = append(agentTools, mcpTools...)
+		}
+	}
+
+	projectRoot := "."
+	if ctx.Config != nil {
+		projectRoot = agent.ResolveAgentWorkspaceDir(ctx.Config, agentID, os.Getenv)
+		if projectRoot == "" {
+			projectRoot = "."
+		}
+	}
+
+	rt, err := runtime.New(runCtx, runtime.Options{
+		Tools:              agentTools,
+		ModelFactory:       modelFactory,
+		ProjectRoot:        projectRoot,
+		Config:             ctx.Config,
+		EnableSystemPrompt: true,
+		Env:                os.Getenv,
+	})
+	if err != nil {
+		return "", err
+	}
+	defer rt.Close()
+
+	prompt := message
+	if ctx.Config != nil {
+		workspaceDir := agent.ResolveAgentWorkspaceDir(ctx.Config, agentID, os.Getenv)
+		entries, _ := runtime.LoadSkillsForWorkspace(workspaceDir, ctx.Config)
+		if len(entries) > 0 {
+			skillsPrompt := runtime.BuildSkillsPrompt(entries, ctx.Config)
+			if strings.TrimSpace(skillsPrompt) != "" {
+				prompt = strings.TrimSpace(skillsPrompt) + "\n\n" + message
+			}
+		}
+	}
+
+	resp, err := rt.Run(runCtx, api.Request{Prompt: prompt, SessionID: sessionKey})
+	if err != nil {
+		return "", err
+	}
+	if resp == nil || resp.Result == nil {
+		return "", nil
+	}
+	return resp.Result.Output, nil
 }

@@ -270,7 +270,7 @@ func SessionsUsageHandler(opts HandlerOpts) error {
 				}{k, e}
 			}
 		}
-		agentIDs := listConfiguredAgentIDs(cfg)
+		agentIDs := listConfiguredAgentIDs(cfg, env)
 		seen := make(map[string]bool)
 		for _, agentID := range agentIDs {
 			discovered, err := session.DiscoverAllSessions(agentID, startMs, endMs, env)

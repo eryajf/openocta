@@ -21,6 +21,7 @@ import (
 	"github.com/openocta/openocta/pkg/config"
 	"github.com/openocta/openocta/pkg/gateway/protocol"
 	"github.com/openocta/openocta/pkg/logging"
+	"github.com/openocta/openocta/pkg/paths"
 	"github.com/openocta/openocta/pkg/session"
 )
 
@@ -178,6 +179,98 @@ func formatChannelReply(agentName, userQuery, content string) string {
 		return content
 	}
 	return fmt.Sprintf("| 回复 %s: %s\n\n%s", agentName, userQuery, content)
+}
+
+// isCronSessionKey 检测 sessionKey 是否表示 cron 会话。
+// 统一只支持 "agent:<agentId>:cron:<jobId>" 形式，不再接受 "cron:<jobId>"。
+func isCronSessionKey(sessionKey string) bool {
+	key := strings.TrimSpace(strings.ToLower(sessionKey))
+	if key == "" {
+		return false
+	}
+	parts := strings.Split(key, ":")
+	if len(parts) >= 4 && parts[0] == "agent" && parts[2] == "cron" {
+		return true
+	}
+	return false
+}
+
+// writeCronSessionResult 将 cron 会话的最终结果写入
+// ~/.openocta/cron/runs/<sessionId>.jsonl，单行 JSON 结构与 cron.run 日志保持一致：
+// {"ts":..., "jobId":..., "action":"finished", "status":"ok", "summary": "...", "sessionId": "...", "sessionKey": "...", "runAtMs":..., "durationMs":...}
+// 注意：这里只做 best-effort 写入，任何错误只记录日志而不会向上冒泡。
+func writeCronSessionResult(sessionKey, sessionID, summary, status string, runAtMs, durationMs int64) {
+	summary = strings.TrimSpace(summary)
+	if summary == "" {
+		return
+	}
+	if !isCronSessionKey(sessionKey) {
+		return
+	}
+
+	// 解析 "agent:<agentId>:cron:<jobId>"，提取 jobId。
+	rawKey := strings.TrimSpace(sessionKey)
+	parts := strings.Split(strings.ToLower(rawKey), ":")
+	jobID := ""
+	if len(parts) >= 4 && parts[0] == "agent" && parts[2] == "cron" {
+		// 使用原始大小写的第 4 段作为 jobId
+		rawParts := strings.Split(rawKey, ":")
+		if len(rawParts) >= 4 {
+			jobID = rawParts[3]
+		}
+	}
+	if jobID == "" {
+		return
+	}
+
+	nowMs := time.Now().UnixMilli()
+	if runAtMs <= 0 {
+		runAtMs = nowMs
+	}
+	if durationMs < 0 {
+		durationMs = 0
+	}
+	if strings.TrimSpace(status) == "" {
+		status = "ok"
+	}
+
+	stateDir := paths.ResolveStateDir(os.Getenv)
+	runsDir := filepath.Join(stateDir, "cron", "runs")
+	if err := os.MkdirAll(runsDir, 0o755); err != nil {
+		chatLog.Warn("cron: failed to create runs dir dir=%s err=%v", runsDir, err)
+		return
+	}
+	resultPath := filepath.Join(runsDir, sessionID+".jsonl")
+
+	// 结果中的 sessionKey 带上 run 前缀，方便在 UI 中区分不同运行：
+	// agent:main:cron:<jobId>:run:<sessionId>
+	resultSessionKey := fmt.Sprintf("agent:main:cron:%s:run:%s", jobID, sessionID)
+
+	doc := map[string]interface{}{
+		"ts":         nowMs,
+		"jobId":      jobID,
+		"action":     "finished",
+		"status":     status,
+		"summary":    summary,
+		"sessionId":  sessionID,
+		"sessionKey": resultSessionKey,
+		"runAtMs":    runAtMs,
+		"durationMs": durationMs,
+	}
+	data, err := json.Marshal(doc)
+	if err != nil {
+		chatLog.Warn("cron: failed to marshal session result jobId=%s err=%v", jobID, err)
+		return
+	}
+	f, err := os.OpenFile(resultPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		chatLog.Warn("cron: failed to open session result path=%s err=%v", resultPath, err)
+		return
+	}
+	defer f.Close()
+	if _, err := f.Write(append(data, '\n')); err != nil {
+		chatLog.Warn("cron: failed to append session result path=%s err=%v", resultPath, err)
+	}
 }
 
 // broadcastChatError broadcasts a chat error to clients.
@@ -508,6 +601,7 @@ func ChatSendHandler(opts HandlerOpts) error {
 	if sessionKey == "" {
 		sessionKey = "main"
 	}
+	cronSession := isCronSessionKey(sessionKey)
 
 	// Check for stop command (simplified check)
 	// 停止该会话
@@ -557,6 +651,18 @@ func ChatSendHandler(opts HandlerOpts) error {
 		if transcriptPath == "" {
 			transcriptPath = session.ResolveSessionFilePath(sessionID, nil, env)
 		}
+	}
+
+	// 若是 cron 会话且还没有显式的 sessionFile，则使用默认规则 <sessionId>.jsonl，
+	// 方便后续 sessions.json 与转录文件建立稳定映射。
+	if cronSession && sessionFile == "" {
+		sessionFile = sessionID + ".jsonl"
+	}
+
+	// 对于 cron 会话，在真正请求大模型前，就先在 sessions.json 中建立或更新一条记录，
+	// 这样控制台可以及时看到该会话。
+	if cronSession {
+		updateSessionAfterRun(opts.Context, sessionKey, sessionID, sessionFile, nil)
 	}
 
 	// Support attachments (simplified - just check if present)
@@ -612,10 +718,14 @@ func ChatSendHandler(opts HandlerOpts) error {
 			}, nil)
 			return nil
 		}
-		// Touch session's updatedAt in sessions.json so UI can see latest activity time.
-		agentID := agent.ResolveSessionAgentID(sessionKey)
-		if err := session.UpdateSessionUpdatedAt(agentID, sessionID, env, 0); err != nil {
-			chatLog.Warn("failed to update session updatedAt agentID=%s sessionID=%s error=%v", agentID, sessionID, err)
+		// Touch session's updatedAt in sessions.json so UI can see latest activity time。
+		// 对于 cron 会话，依赖 updateSessionAfterRun 使用 canonical sessionKey
+		// 更新，避免基于裸 sessionId 再写一份重复 entry。
+		if !cronSession {
+			agentID := agent.ResolveSessionAgentID(sessionKey)
+			if err := session.UpdateSessionUpdatedAt(agentID, sessionID, env, 0); err != nil {
+				chatLog.Warn("failed to update session updatedAt agentID=%s sessionID=%s error=%v", agentID, sessionID, err)
+			}
 		}
 	}
 
@@ -831,6 +941,11 @@ func ChatSendHandler(opts HandlerOpts) error {
 						"timestamp": time.Now().UnixMilli(),
 					}
 					broadcastChatFinal(ctxForBroadcast, runId, sessionKey, messageBody, deliverForGoroutine)
+					if cronSession {
+						runAtMs := runStart.UnixMilli()
+						durationMs := time.Since(runStart).Milliseconds()
+						writeCronSessionResult(sessionKey, sessionID, output, "ok", runAtMs, durationMs)
+					}
 				} else {
 					appendErrorToTranscript(transcriptPath, "模型未返回任何输出", runId, sessionKey, ctxForBroadcast)
 				}
@@ -845,6 +960,7 @@ func ChatSendHandler(opts HandlerOpts) error {
 			var lastMessageID string
 			var usageSnapshot *api.Usage
 			stopReason := ""
+			lastAssistantContent := "" // last assistant content
 
 			for evt := range eventChan {
 				if ctx.Err() != nil {
@@ -985,6 +1101,11 @@ func ChatSendHandler(opts HandlerOpts) error {
 							"timestamp": tsMs,
 						}
 						broadcastChatFinal(ctxForBroadcast, runId, sessionKey, messageBody, deliverForGoroutine)
+						// 将最终文本内容写入 cron 会话结果文件（若是 cron 会话）
+						if cronSession {
+							finalText := extractAssistantTextFromMessage(messageBody)
+							lastAssistantContent = finalText
+						}
 						// Reset accumulators so next EventMessageStop (if any) does not include this turn's content
 						assistantContent = nil
 						textBuf.Reset()
@@ -1004,8 +1125,16 @@ func ChatSendHandler(opts HandlerOpts) error {
 						}
 					}
 					appendErrorToTranscript(transcriptPath, outMsg, runId, sessionKey, ctxForBroadcast)
+					// 将最终文本内容写入 cron 会话结果文件（若是 cron 会话）
+					// 对于 cron，会将最后一次成功的 assistant 内容作为 summary，错误内容写入 transcript。
 					return
 				}
+			}
+			if cronSession {
+				// 对于流式场景，使用最后一次 assistant 内容作为 summary。
+				durationMs := time.Since(runStart).Milliseconds()
+				runAtMs := runStart.UnixMilli()
+				writeCronSessionResult(sessionKey, sessionID, lastAssistantContent, "ok", runAtMs, durationMs)
 			}
 
 			// Context cancelled or stream closed
@@ -1041,6 +1170,10 @@ func ChatSendHandler(opts HandlerOpts) error {
 						"timestamp": time.Now().UnixMilli(),
 					}
 					broadcastChatFinal(ctxForBroadcast, runId, sessionKey, messageBody, deliverForGoroutine)
+					if cronSession {
+						runAtMs := runStart.UnixMilli()
+						writeCronSessionResult(sessionKey, sessionID, output, "ok", runAtMs, durationMs)
+					}
 				}
 			}
 
