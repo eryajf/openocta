@@ -99,6 +99,34 @@ export function applyConfigSnapshot(state: ConfigState, snapshot: ConfigSnapshot
   }
 }
 
+/** Saves only a partial patch (e.g. { mcp: {...} }) using config.patch. */
+export async function saveConfigPatch(state: ConfigState, patch: Record<string, unknown>) {
+  if (!state.client || !state.connected) {
+    return;
+  }
+  state.configSaving = true;
+  state.lastError = null;
+  try {
+    const raw = JSON.stringify(patch);
+    let baseHash = state.configSnapshot?.hash;
+    if (!baseHash) {
+      await loadConfig(state);
+      baseHash = state.configSnapshot?.hash;
+    }
+    if (!baseHash) {
+      state.lastError = "Config hash missing; reload and retry.";
+      return;
+    }
+    await state.client.request("config.patch", { raw, baseHash });
+    state.configFormDirty = false;
+    await loadConfig(state);
+  } catch (err) {
+    state.lastError = String(err);
+  } finally {
+    state.configSaving = false;
+  }
+}
+
 export async function saveConfig(state: ConfigState) {
   if (!state.client || !state.connected) {
     return;

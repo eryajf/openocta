@@ -192,6 +192,45 @@ export class OpenClawApp extends LitElement {
   @state() whatsappBusy = false;
   @state() nostrProfileFormState: NostrProfileFormState | null = null;
   @state() nostrProfileAccountId: string | null = null;
+  @state() channelsSelectedChannelId: string | null = null;
+  @state() mcpSelectedKey: string | null = null;
+  @state() mcpViewMode: "list" | "card" = "card";
+  @state() mcpEditMode: "form" | "raw" = "form";
+  @state() mcpEditConnectionType: "stdio" | "url" | "service" = "stdio";
+  @state() mcpFormDirty = false;
+  @state() mcpRawJson = "";
+  @state() mcpRawError: string | null = null;
+  @state() mcpAddModalOpen = false;
+  @state() mcpAddName = "";
+  @state() mcpAddDraft: Record<string, unknown> = {};
+  @state() mcpAddConnectionType: "stdio" | "url" | "service" = "stdio";
+  @state() mcpAddEditMode: "form" | "raw" = "form";
+  @state() mcpAddRawJson = "{}";
+  @state() mcpAddRawError: string | null = null;
+  @state() modelsSelectedProvider: string | null = null;
+  @state() modelsViewMode: "list" | "card" = "card";
+  @state() modelsFormDirty = false;
+  @state() modelsAddProviderModalOpen = false;
+  @state() modelsAddProviderForm: {
+    providerId: string;
+    displayName: string;
+    baseUrl: string;
+    apiKey: string;
+    apiKeyPrefix: string;
+  } = {
+    providerId: "",
+    displayName: "",
+    baseUrl: "",
+    apiKey: "",
+    apiKeyPrefix: "",
+  };
+  @state() modelsAddModelModalOpen = false;
+  @state() modelsAddModelForm: { modelId: string; modelName: string } = { modelId: "", modelName: "" };
+  @state() modelsUseModelModalOpen = false;
+  @state() modelsUseModelModalProvider: string | null = null;
+  @state() modelsSaveError: string | null = null;
+  @state() skillsSelectedSkillKey: string | null = null;
+  @state() skillsViewMode: "list" | "card" = "card";
 
   @state() presenceLoading = false;
   @state() presenceEntries: PresenceEntry[] = [];

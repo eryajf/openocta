@@ -615,6 +615,21 @@
     grid-template-columns: 1fr;
   }
 
+  .mcp-table .mcp-table-head,
+  .mcp-table .mcp-table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .models-table .models-table-head,
+  .models-table .models-table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .skills-table .skills-table-head,
+  .skills-table .skills-table-row {
+    grid-template-columns: 1fr;
+  }
+
   .list-item {
     grid-template-columns: 1fr;
   }

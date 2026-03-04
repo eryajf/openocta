@@ -6,7 +6,7 @@ import {
   startWhatsAppLogin,
   waitWhatsAppLogin,
 } from "./controllers/channels.ts";
-import { loadConfig, saveConfig } from "./controllers/config.ts";
+import { loadConfig, saveConfig, saveConfigPatch } from "./controllers/config.ts";
 import { createNostrProfileFormState } from "./views/channels.nostr-profile-form.ts";
 
 export async function handleWhatsAppStart(host: OpenClawApp, force: boolean) {
@@ -25,7 +25,13 @@ export async function handleWhatsAppLogout(host: OpenClawApp) {
 }
 
 export async function handleChannelConfigSave(host: OpenClawApp) {
-  await saveConfig(host);
+  // Use patch when we have channels edits so we only send the channels section
+  const channels = host.configForm?.channels;
+  if (channels != null && typeof channels === "object") {
+    await saveConfigPatch(host, { channels });
+  } else {
+    await saveConfig(host);
+  }
   await loadConfig(host);
   await loadChannels(host, true);
 }

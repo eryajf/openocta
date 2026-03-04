@@ -971,6 +971,245 @@
   font-size: 11px;
 }
 
+/* MCP table: 4 columns */
+.mcp-table .mcp-table-head,
+.mcp-table .mcp-table-row {
+  grid-template-columns: minmax(0, 1.2fr) minmax(100px, 1fr) 90px minmax(200px, 1fr);
+}
+
+.mcp-table-cell {
+  min-width: 0;
+}
+
+/* MCP card grid */
+.mcp-card-grid {
+  margin-top: 0;
+}
+
+.mcp-server-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  transition: border-color var(--duration-fast) ease;
+}
+
+.mcp-server-card:hover {
+  border-color: var(--border-strong);
+}
+
+.mcp-server-card.selected,
+.mcp-server-card.list-item-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.mcp-server-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mcp-server-card__icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.mcp-server-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mcp-server-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.mcp-server-card__name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.mcp-server-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+/* Skills table: 4 columns */
+.skills-table .skills-table-head,
+.skills-table .skills-table-row {
+  grid-template-columns: minmax(0, 1.2fr) minmax(100px, 1fr) 90px minmax(200px, 1fr);
+}
+
+.skills-table-cell {
+  min-width: 0;
+}
+
+/* Skills card grid */
+.skills-server-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  transition: border-color var(--duration-fast) ease;
+}
+
+.skills-server-card:hover {
+  border-color: var(--border-strong);
+}
+
+.skills-server-card.list-item-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.skills-server-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.skills-server-card__icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.skills-server-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.skills-server-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.skills-server-card__name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.skills-server-card__sub {
+  flex: 1;
+  min-height: 0;
+}
+
+.skills-server-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+/* Models table: 4 columns */
+.models-table .models-table-head,
+.models-table .models-table-row {
+  grid-template-columns: minmax(0, 1.2fr) minmax(100px, 1fr) minmax(120px, 1.2fr) minmax(180px, 1fr);
+}
+
+.models-table-cell {
+  min-width: 0;
+}
+
+/* Models card grid */
+.models-provider-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  transition: border-color var(--duration-fast) ease;
+}
+
+.models-provider-card:hover {
+  border-color: var(--border-strong);
+}
+
+.models-provider-card.list-item-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.models-provider-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.models-provider-card__icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.models-provider-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.models-provider-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.models-provider-card__name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.models-provider-card__meta {
+  font-size: 12px;
+}
+
+.models-provider-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
 /* ===========================================
    Log Stream
    =========================================== */
@@ -1601,6 +1840,63 @@
 }
 
 /* ===========================================
+   Channel Config Panel (slide-out from right, CoPaw-style)
+   =========================================== */
+
+.channel-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 150;
+  animation: fade-in 0.15s ease-out;
+}
+
+.channel-panel-overlay .channel-panel {
+  width: min(420px, 100%);
+  max-height: 100vh;
+  margin: 0;
+  border-radius: 0;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slide-in-right 0.2s ease-out;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.channel-panel-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.channel-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* ===========================================
    Modal Overlay (skills upload, etc.)
    =========================================== */
 
@@ -2118,4 +2414,78 @@
   .agent-tools-list {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===========================================
+   Env Vars
+   =========================================== */
+
+.env-vars {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.env-vars__toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+.env-vars__dirty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.env-vars__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.env-vars__empty {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.env-vars__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.env-vars__table th,
+.env-vars__table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.env-vars__table th {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.env-vars__input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+
+.env-vars__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.env-vars__delete {
+  font-size: 12px;
+}
+
+.env-vars__add {
+  align-self: flex-start;
 }

@@ -3,7 +3,6 @@ import type { ChannelAccountSnapshot, NostrStatus } from "../types.ts";
 import type { ChannelsProps } from "./channels.types.ts";
 import { formatAgo } from "../format.ts";
 import { t } from "../strings.js";
-import { renderChannelConfigSection } from "./channels.config.ts";
 import {
   renderNostrProfileForm,
   type NostrProfileFormState,
@@ -228,10 +227,11 @@ export function renderNostrCard(params: {
 
       ${renderProfileSection()}
 
-      ${renderChannelConfigSection({ channelId: "nostr", props })}
-
       <div class="row" style="margin-top: 12px;">
         <button class="btn" @click=${() => props.onRefresh(false)}>${t("commonRefresh")}</button>
+        <button class="btn primary" @click=${() => props.onChannelSelect("nostr")}>
+          ${t("channelsConfigure")}
+        </button>
       </div>
     </div>
   `;

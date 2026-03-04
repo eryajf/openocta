@@ -3,7 +3,6 @@ import type { GoogleChatStatus } from "../types.ts";
 import type { ChannelsProps } from "./channels.types.ts";
 import { formatAgo } from "../format.ts";
 import { t } from "../strings.js";
-import { renderChannelConfigSection } from "./channels.config.ts";
 
 export function renderGoogleChatCard(params: {
   props: ChannelsProps;
@@ -68,11 +67,12 @@ export function renderGoogleChatCard(params: {
           : nothing
       }
 
-      ${renderChannelConfigSection({ channelId: "googlechat", props })}
-
       <div class="row" style="margin-top: 12px;">
         <button class="btn" @click=${() => props.onRefresh(true)}>
           ${t("channelProbe")}
+        </button>
+        <button class="btn primary" @click=${() => props.onChannelSelect("googlechat")}>
+          ${t("channelsConfigure")}
         </button>
       </div>
     </div>

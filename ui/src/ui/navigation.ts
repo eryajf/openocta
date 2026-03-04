@@ -8,8 +8,8 @@ export function getTabGroups() {
       label: t("tabGroupControl"),
       tabs: ["overview", "channels", "instances", "sessions", "usage", "cron"] as const,
     },
-    { label: t("tabGroupAgent"), tabs: ["skills"] as const },
-    { label: t("tabGroupSettings"), tabs: ["config", "debug", "logs"] as const },
+    { label: t("tabGroupAgent"), tabs: ["models", "skills", "mcp"] as const },
+    { label: t("tabGroupSettings"), tabs: ["config", "envVars", "logs"] as const },
   ];
 }
 
@@ -22,11 +22,14 @@ export type Tab =
   | "usage"
   | "cron"
   | "skills"
+  | "mcp"
   | "nodes"
   | "chat"
   | "digitalEmployee"
   | "agentSwarm"
   | "config"
+  | "envVars"
+  | "models"
   | "debug"
   | "logs";
 
@@ -39,11 +42,14 @@ const TAB_PATHS: Record<Tab, string> = {
   usage: "/usage",
   cron: "/cron",
   skills: "/skills",
+  mcp: "/mcp",
   nodes: "/nodes",
   chat: "/chat",
   digitalEmployee: "/digital-employee",
   agentSwarm: "/agent-swarm",
   config: "/config",
+  envVars: "/env-vars",
+  models: "/models",
   debug: "/debug",
   logs: "/logs",
 };
@@ -153,10 +159,16 @@ export function iconForTab(tab: Tab): IconName {
       return "loader";
     case "skills":
       return "zap";
+    case "mcp":
+      return "folder";
     case "nodes":
       return "monitor";
     case "config":
       return "settings";
+    case "envVars":
+      return "settings";
+    case "models":
+      return "folder";
     case "debug":
       return "bug";
     case "logs":
@@ -184,6 +196,8 @@ export function titleForTab(tab: Tab) {
       return t("navTitleCron");
     case "skills":
       return t("navTitleSkills");
+    case "mcp":
+      return t("navTitleMcp");
     case "nodes":
       return t("navTitleNodes");
     case "chat":
@@ -194,6 +208,10 @@ export function titleForTab(tab: Tab) {
       return t("navTitleAgentSwarm");
     case "config":
       return t("navTitleConfig");
+    case "envVars":
+      return t("navTitleEnvVars");
+    case "models":
+      return t("navTitleModels");
     case "debug":
       return t("navTitleDebug");
     case "logs":
@@ -221,6 +239,8 @@ export function subtitleForTab(tab: Tab) {
       return t("subtitleCron");
     case "skills":
       return t("subtitleSkills");
+    case "mcp":
+      return t("subtitleMcp");
     case "nodes":
       return t("subtitleNodes");
     case "chat":
@@ -231,6 +251,10 @@ export function subtitleForTab(tab: Tab) {
       return t("subtitleAgentSwarm");
     case "config":
       return t("subtitleConfig");
+    case "envVars":
+      return t("subtitleEnvVars");
+    case "models":
+      return t("subtitleModels");
     case "debug":
       return t("subtitleDebug");
     case "logs":

@@ -3,7 +3,6 @@ import type { WhatsAppStatus } from "../types.ts";
 import type { ChannelsProps } from "./channels.types.ts";
 import { formatAgo } from "../format.ts";
 import { t } from "../strings.js";
-import { renderChannelConfigSection } from "./channels.config.ts";
 import { formatDuration } from "./channels.shared.ts";
 
 export function renderWhatsAppCard(params: {
@@ -112,9 +111,10 @@ export function renderWhatsAppCard(params: {
         <button class="btn" @click=${() => props.onRefresh(true)}>
           ${t("commonRefresh")}
         </button>
+        <button class="btn primary" @click=${() => props.onChannelSelect("whatsapp")}>
+          ${t("channelsConfigure")}
+        </button>
       </div>
-
-      ${renderChannelConfigSection({ channelId: "whatsapp", props })}
     </div>
   `;
 }

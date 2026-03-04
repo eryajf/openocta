@@ -240,8 +240,9 @@ type AuthCooldownsConfig struct {
 
 // EnvConfig holds env var overrides.
 type EnvConfig struct {
-	ShellEnv *ShellEnvConfig   `json:"shellEnv,omitempty"`
-	Vars     map[string]string `json:"vars,omitempty"`
+	ShellEnv *ShellEnvConfig              `json:"shellEnv,omitempty"`
+	Vars     map[string]string            `json:"vars,omitempty"`
+	ModelEnv map[string]map[string]string `json:"modelEnv,omitempty"` // key: "provider/modelId", value: env vars for that model (overrides Vars)
 }
 
 // ShellEnvConfig for shell env import.

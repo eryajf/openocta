@@ -3,7 +3,6 @@ import type { IMessageStatus } from "../types.ts";
 import type { ChannelsProps } from "./channels.types.ts";
 import { formatAgo } from "../format.ts";
 import { t } from "../strings.js";
-import { renderChannelConfigSection } from "./channels.config.ts";
 
 export function renderIMessageCard(params: {
   props: ChannelsProps;
@@ -54,11 +53,12 @@ export function renderIMessageCard(params: {
           : nothing
       }
 
-      ${renderChannelConfigSection({ channelId: "imessage", props })}
-
       <div class="row" style="margin-top: 12px;">
         <button class="btn" @click=${() => props.onRefresh(true)}>
           ${t("channelProbe")}
+        </button>
+        <button class="btn primary" @click=${() => props.onChannelSelect("imessage")}>
+          ${t("channelsConfigure")}
         </button>
       </div>
     </div>

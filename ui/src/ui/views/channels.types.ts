@@ -32,9 +32,12 @@ export type ChannelsProps = {
   configUiHints: ConfigUiHints;
   configSaving: boolean;
   configFormDirty: boolean;
+  /** Channel key being edited in the slide-out panel (e.g. "discord", "feishu") */
+  selectedChannelId: string | null;
   nostrProfileFormState: NostrProfileFormState | null;
   nostrProfileAccountId: string | null;
   onRefresh: (probe: boolean) => void;
+  onChannelSelect: (channelId: string | null) => void;
   onWhatsAppStart: (force: boolean) => void;
   onWhatsAppWait: () => void;
   onWhatsAppLogout: () => void;

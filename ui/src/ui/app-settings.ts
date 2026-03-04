@@ -190,6 +190,9 @@ export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "skills") {
     await loadSkills(host as unknown as OpenClawApp);
   }
+  if (host.tab === "mcp") {
+    await loadConfig(host as unknown as OpenClawApp);
+  }
   if (host.tab === "digitalEmployee") {
     await loadDigitalEmployees(host as unknown as OpenClawApp);
   }
@@ -230,6 +233,9 @@ export async function refreshActiveTab(host: SettingsHost) {
   }
   if (host.tab === "config") {
     await loadConfigSchema(host as unknown as OpenClawApp);
+    await loadConfig(host as unknown as OpenClawApp);
+  }
+  if (host.tab === "envVars" || host.tab === "models") {
     await loadConfig(host as unknown as OpenClawApp);
   }
   if (host.tab === "debug") {

@@ -31,11 +31,14 @@ type Strings = {
   subtitleUsage: string;
   subtitleCron: string;
   subtitleSkills: string;
+  subtitleMcp: string;
   subtitleNodes: string;
   subtitleChat: string;
   subtitleDigitalEmployee: string;
   subtitleAgentSwarm: string;
   subtitleConfig: string;
+  subtitleEnvVars: string;
+  subtitleModels: string;
   subtitleDebug: string;
   subtitleLogs: string;
   // Nav titles (tab labels; proper nouns not translated)
@@ -47,12 +50,15 @@ type Strings = {
   navTitleUsage: string;
   navTitleCron: string;
   navTitleSkills: string;
+  navTitleMcp: string;
   navTitleNodes: string;
   navTitleChat: string;
   navTitleDigitalEmployee: string;
   navTitleAgentSwarm: string;
   agentSwarmDevBadge: string;
   navTitleConfig: string;
+  navTitleEnvVars: string;
+  navTitleModels: string;
   navTitleDebug: string;
   navTitleLogs: string;
   navTitleControl: string;
@@ -105,6 +111,68 @@ type Strings = {
   commonYes: string;
   commonNo: string;
   // Channels
+  channelsConfigure: string;
+  mcpAddServer: string;
+  mcpServerName: string;
+  mcpNoServers: string;
+  mcpEnabled: string;
+  mcpDisabled: string;
+  mcpFormMode: string;
+  mcpRawMode: string;
+  mcpCommand: string;
+  mcpArgs: string;
+  mcpUrl: string;
+  mcpService: string;
+  mcpServiceUrl: string;
+  mcpToolPrefix: string;
+  mcpRawJson: string;
+  mcpDeleteConfirm: string;
+  mcpConnectionTypeStdio: string;
+  mcpConnectionTypeUrl: string;
+  mcpConnectionTypeService: string;
+  mcpEnv: string;
+  mcpEnvPlaceholder: string;
+  mcpViewList: string;
+  mcpViewCard: string;
+  mcpTableName: string;
+  mcpTableType: string;
+  mcpTableStatus: string;
+  mcpTableActions: string;
+  modelsViewList: string;
+  modelsViewCard: string;
+  modelsTableName: string;
+  modelsTableModel: string;
+  modelsTableBaseUrl: string;
+  modelsTableActions: string;
+  modelsAddProvider: string;
+  modelsAddCustomProvider: string;
+  modelsProviderId: string;
+  modelsProviderIdPlaceholder: string;
+  modelsProviderIdHint: string;
+  modelsDisplayName: string;
+  modelsDisplayNamePlaceholder: string;
+  modelsDefaultBaseUrl: string;
+  modelsDefaultBaseUrlPlaceholder: string;
+  modelsApiKeyPrefix: string;
+  modelsApiKeyPrefixPlaceholder: string;
+  modelsApiType: string;
+  modelsApiTypeTooltip: string;
+  modelsApiTypeOpenAI: string;
+  modelsApiTypeAnthropic: string;
+  modelsEnvVars: string;
+  modelsAddModel: string;
+  modelsModelId: string;
+  modelsModelName: string;
+  modelsModelManagement: string;
+  modelsNoModels: string;
+  modelsEnvVarConflict: string;
+  modelsNoProviders: string;
+  modelsModels: string;
+  modelsBaseUrl: string;
+  modelsApiKey: string;
+  modelsUseAsDefault: string;
+  modelsSelectModelToUse: string;
+  modelsCurrentDefault: string;
   channelsHealth: string;
   channelsHealthSub: string;
   channelsNoSnapshot: string;
@@ -112,6 +180,7 @@ type Strings = {
   channelsConfigSchemaUnavailable: string;
   channelsLoadingConfigSchema: string;
   commonSave: string;
+  commonCreate: string;
   commonReload: string;
   commonCancel: string;
   channelConfigured: string;
@@ -535,6 +604,14 @@ type Strings = {
   skillsUploadSuccess: string;
   skillsDelete: string;
   skillsDeleteConfirm: string;
+  skillsSource: string;
+  skillsPath: string;
+  skillsEligible: string;
+  skillsDisabled: string;
+  skillsRequiresBins: string;
+  skillsRequiresEnv: string;
+  skillsRequiresConfig: string;
+  skillsMissing: string;
   // Nodes
   nodesTitle: string;
   nodesSub: string;
@@ -710,6 +787,18 @@ type Strings = {
   configNoSettingsInSection: string;
   configUnsupportedSchemaNode: string;
   configSubnavAll: string;
+  // Env vars view
+  envVarsSection: string;
+  envModelEnvSection: string;
+  envShellEnvSection: string;
+  envVarsKey: string;
+  envVarsValue: string;
+  envVarsAdd: string;
+  envVarsDelete: string;
+  envVarsSave: string;
+  envVarsEmpty: string;
+  envVarsKeyPlaceholder: string;
+  envVarsValuePlaceholder: string;
   // Debug
   debugSnapshots: string;
   debugSnapshotsSub: string;
@@ -752,11 +841,14 @@ const EN: Strings = {
   subtitleUsage: "",
   subtitleCron: "Schedule wakeups and recurring agent runs.",
   subtitleSkills: "Manage skill availability and API key injection.",
+  subtitleMcp: "Configure MCP servers and tools.",
   subtitleNodes: "Paired devices, capabilities, and command exposure.",
   subtitleChat: "Direct gateway chat session for quick interventions.",
   subtitleDigitalEmployee: "Start templated conversations with domain-specific digital employees.",
   subtitleAgentSwarm: "Multi-agent swarm collaboration for ops and SRE.",
   subtitleConfig: "Edit ~/.openclaw/openclaw.json safely.",
+  subtitleEnvVars: "Key-value env vars saved to config.env.vars in ~/.openocta/openocta.json.",
+  subtitleModels: "Configure model providers and API keys.",
   subtitleDebug: "Gateway snapshots, events, and manual RPC calls.",
   subtitleLogs: "Live tail of the gateway file logs.",
   navTitleAgents: "Agents",
@@ -767,12 +859,15 @@ const EN: Strings = {
   navTitleUsage: "Usage",
   navTitleCron: "Cron Jobs",
   navTitleSkills: "Skills",
+  navTitleMcp: "MCP",
   navTitleNodes: "Nodes",
   navTitleChat: "Chat",
   navTitleDigitalEmployee: "Digital Employee",
   navTitleAgentSwarm: "Agent Swarm",
   agentSwarmDevBadge: "In Development",
   navTitleConfig: "Config",
+  navTitleEnvVars: "Env Vars",
+  navTitleModels: "Models",
   navTitleDebug: "Debug",
   navTitleLogs: "Logs",
   navTitleControl: "Control",
@@ -822,6 +917,68 @@ const EN: Strings = {
   commonNA: "n/a",
   commonYes: "Yes",
   commonNo: "No",
+  channelsConfigure: "Configure",
+  mcpAddServer: "Add MCP Server",
+  mcpServerName: "Server name",
+  mcpNoServers: "No MCP servers configured.",
+  mcpEnabled: "Enabled",
+  mcpDisabled: "Disabled",
+  mcpFormMode: "Form",
+  mcpRawMode: "Raw JSON",
+  mcpCommand: "Command",
+  mcpArgs: "Args",
+  mcpUrl: "URL",
+  mcpService: "Service",
+  mcpServiceUrl: "Service URL",
+  mcpToolPrefix: "Tool Prefix",
+  mcpRawJson: "Raw JSON",
+  mcpDeleteConfirm: "Delete this MCP server?",
+  mcpConnectionTypeStdio: "Command (stdio)",
+  mcpConnectionTypeUrl: "URL",
+  mcpConnectionTypeService: "Service",
+  mcpEnv: "Environment variables",
+  mcpEnvPlaceholder: "KEY=value or $ENV_VAR, one per line",
+  mcpViewList: "List view",
+  mcpViewCard: "Card view",
+  mcpTableName: "Name",
+  mcpTableType: "Type",
+  mcpTableStatus: "Status",
+  mcpTableActions: "Actions",
+  modelsViewList: "List view",
+  modelsViewCard: "Card view",
+  modelsTableName: "Name",
+  modelsTableModel: "Default Model",
+  modelsTableBaseUrl: "Base URL",
+  modelsTableActions: "Actions",
+  modelsAddProvider: "Add Provider",
+  modelsAddCustomProvider: "Add Custom Provider",
+  modelsProviderId: "Provider ID",
+  modelsProviderIdPlaceholder: "e.g. openai, google, anthropic",
+  modelsProviderIdHint: "Lowercase letters, digits, hyphens, underscores. Cannot be changed later.",
+  modelsDisplayName: "Display Name",
+  modelsDisplayNamePlaceholder: "e.g. OpenAI, Google Gemini",
+  modelsDefaultBaseUrl: "Default Base URL",
+  modelsDefaultBaseUrlPlaceholder: "e.g. https://api.openai.com/v1",
+  modelsApiKeyPrefix: "API Key Prefix (optional)",
+  modelsApiKeyPrefixPlaceholder: "e.g. sk-",
+  modelsApiType: "API Type",
+  modelsApiTypeTooltip: "OpenAI: Compatible with OpenAI Chat Completions API. Anthropic: Compatible with Anthropic Messages API.",
+  modelsApiTypeOpenAI: "OpenAI (openai-completions)",
+  modelsApiTypeAnthropic: "Anthropic (anthropic-messages)",
+  modelsEnvVars: "Environment Variables",
+  modelsAddModel: "Add Model",
+  modelsModelId: "Model ID",
+  modelsModelName: "Model Name",
+  modelsModelManagement: "Model Management",
+  modelsNoModels: "No models yet. Click Add Model to add one.",
+  modelsEnvVarConflict: "Environment variable conflict",
+  modelsNoProviders: "No model providers configured.",
+  modelsModels: "models",
+  modelsBaseUrl: "Base URL",
+  modelsApiKey: "API Key",
+  modelsUseAsDefault: "Use",
+  modelsSelectModelToUse: "Select model to use",
+  modelsCurrentDefault: "Current default",
   channelsHealth: "Channel health",
   channelsHealthSub: "Channel status snapshots from the gateway.",
   channelsNoSnapshot: "No snapshot yet.",
@@ -829,6 +986,7 @@ const EN: Strings = {
   channelsConfigSchemaUnavailable: "Channel config schema unavailable.",
   channelsLoadingConfigSchema: "Loading config schema…",
   commonSave: "Save",
+  commonCreate: "Create",
   commonReload: "Reload",
   commonCancel: "Cancel",
   channelConfigured: "Configured",
@@ -1250,6 +1408,14 @@ const EN: Strings = {
   skillsUploadSuccess: "Skill uploaded successfully",
   skillsDelete: "Delete",
   skillsDeleteConfirm: "Delete this skill?",
+  skillsSource: "Source",
+  skillsPath: "Path",
+  skillsEligible: "Eligible",
+  skillsDisabled: "Disabled",
+  skillsRequiresBins: "Requires bins",
+  skillsRequiresEnv: "Requires env",
+  skillsRequiresConfig: "Requires config",
+  skillsMissing: "Missing",
   nodesTitle: "Nodes",
   nodesSub: "Paired devices and live links.",
   nodesNoFound: "No nodes found.",
@@ -1423,6 +1589,17 @@ const EN: Strings = {
   configNoSettingsInSection: "No settings in this section",
   configUnsupportedSchemaNode: "Unsupported schema node. Use Raw mode.",
   configSubnavAll: "All",
+  envVarsSection: "Vars (env.vars)",
+  envModelEnvSection: "Model Env (env.modelEnv)",
+  envShellEnvSection: "Shell Env (env.shellEnv)",
+  envVarsKey: "Key",
+  envVarsValue: "Value",
+  envVarsAdd: "Add",
+  envVarsDelete: "Delete",
+  envVarsSave: "Save",
+  envVarsEmpty: "No environment variables. Click Add to create one.",
+  envVarsKeyPlaceholder: "e.g. API_KEY",
+  envVarsValuePlaceholder: "e.g. your-secret-value",
   debugSnapshots: "Snapshots",
   debugSnapshotsSub: "Status, health, and heartbeat data.",
   debugStatus: "Status",
@@ -1463,11 +1640,14 @@ const ZH: Strings = {
   subtitleUsage: "",
   subtitleCron: "安排唤醒与定时代理任务。",
   subtitleSkills: "管理技能可用性与 API 密钥注入。",
+  subtitleMcp: "配置 MCP 服务器与工具。",
   subtitleNodes: "已配对设备、能力与命令。",
   subtitleChat: "直接与网关聊天进行快速操作。",
   subtitleDigitalEmployee: "按业务场景切换数字员工模版，一键开启新会话。",
   subtitleAgentSwarm: "多Agent集群协作，面向运维与 SRE。",
   subtitleConfig: "安全编辑 ~/.openocta/openocta.json。",
+  subtitleEnvVars: "Key-Value 环境变量，保存至 ~/.openocta/openocta.json 的 env.vars。",
+  subtitleModels: "配置模型厂商与 API 密钥。",
   subtitleDebug: "网关快照、事件与手动 RPC 调用。",
   subtitleLogs: "网关日志实时查看。",
   navTitleAgents: "代理",
@@ -1478,12 +1658,15 @@ const ZH: Strings = {
   navTitleUsage: "用量",
   navTitleCron: "定时任务",
   navTitleSkills: "技能",
+  navTitleMcp: "MCP",
   navTitleNodes: "节点",
   navTitleChat: "Chat",
   navTitleDigitalEmployee: "数字员工",
   navTitleAgentSwarm: "Agent Swarm",
   agentSwarmDevBadge: "开发中",
   navTitleConfig: "配置",
+  navTitleEnvVars: "环境变量",
+  navTitleModels: "模型",
   navTitleDebug: "测试",
   navTitleLogs: "日志",
   navTitleControl: "控制",
@@ -1533,6 +1716,68 @@ const ZH: Strings = {
   commonNA: "无",
   commonYes: "是",
   commonNo: "否",
+  channelsConfigure: "配置",
+  mcpAddServer: "添加 MCP 服务器",
+  mcpServerName: "服务器名称",
+  mcpNoServers: "暂无 MCP 服务器配置。",
+  mcpEnabled: "已启用",
+  mcpDisabled: "已禁用",
+  mcpFormMode: "表单",
+  mcpRawMode: "原始 JSON",
+  mcpCommand: "命令",
+  mcpArgs: "参数",
+  mcpUrl: "URL",
+  mcpService: "服务",
+  mcpServiceUrl: "服务 URL",
+  mcpToolPrefix: "工具前缀",
+  mcpRawJson: "原始 JSON",
+  mcpDeleteConfirm: "确定删除此 MCP 服务器？",
+  mcpConnectionTypeStdio: "命令行 (stdio)",
+  mcpConnectionTypeUrl: "URL",
+  mcpConnectionTypeService: "服务",
+  mcpEnv: "环境变量",
+  mcpEnvPlaceholder: "KEY=value 或 $ENV_VAR，每行一个",
+  mcpViewList: "列表",
+  mcpViewCard: "卡片",
+  mcpTableName: "名称",
+  mcpTableType: "连接类型",
+  mcpTableStatus: "状态",
+  mcpTableActions: "操作",
+  modelsViewList: "列表",
+  modelsViewCard: "卡片",
+  modelsTableName: "名称",
+  modelsTableModel: "默认模型",
+  modelsTableBaseUrl: "Base URL",
+  modelsTableActions: "操作",
+  modelsAddProvider: "添加厂商",
+  modelsAddCustomProvider: "添加自定义厂商",
+  modelsProviderId: "厂商 ID",
+  modelsProviderIdPlaceholder: "如 openai, google, anthropic",
+  modelsProviderIdHint: "小写字母、数字、连字符、下划线。创建后不可修改。",
+  modelsDisplayName: "展示名称",
+  modelsDisplayNamePlaceholder: "如 OpenAI, Google Gemini",
+  modelsDefaultBaseUrl: "默认 Base URL",
+  modelsDefaultBaseUrlPlaceholder: "如 https://api.openai.com/v1",
+  modelsApiKeyPrefix: "API Key 前缀（可选）",
+  modelsApiKeyPrefixPlaceholder: "如 sk-",
+  modelsApiType: "API 类型",
+  modelsApiTypeTooltip: "OpenAI：兼容 OpenAI Chat Completions 的端点。默认会请求/v1/chat/completions。\nAnthropic：兼容 Anthropic Messages API 的端点，会进行直接请求。",
+  modelsApiTypeOpenAI: "OpenAI (openai-completions)",
+  modelsApiTypeAnthropic: "Anthropic (anthropic-messages)",
+  modelsEnvVars: "环境变量",
+  modelsAddModel: "添加模型",
+  modelsModelId: "模型 ID",
+  modelsModelName: "模型名称",
+  modelsModelManagement: "模型管理",
+  modelsNoModels: "暂无模型，点击添加模型。",
+  modelsEnvVarConflict: "环境变量冲突",
+  modelsNoProviders: "暂无模型厂商配置。",
+  modelsModels: "模型",
+  modelsBaseUrl: "Base URL",
+  modelsApiKey: "API Key",
+  modelsUseAsDefault: "使用",
+  modelsSelectModelToUse: "选择要使用的模型",
+  modelsCurrentDefault: "当前默认",
   channelsHealth: "通道健康",
   channelsHealthSub: "网关返回的通道状态快照。",
   channelsNoSnapshot: "暂无快照。",
@@ -1540,6 +1785,7 @@ const ZH: Strings = {
   channelsConfigSchemaUnavailable: "通道配置 Schema 不可用。",
   channelsLoadingConfigSchema: "正在加载配置 Schema…",
   commonSave: "保存",
+  commonCreate: "创建",
   commonReload: "重新加载",
   commonCancel: "取消",
   channelConfigured: "已配置",
@@ -1957,6 +2203,14 @@ const ZH: Strings = {
   skillsUploadSuccess: "技能上传成功",
   skillsDelete: "删除",
   skillsDeleteConfirm: "确定删除此技能？",
+  skillsSource: "来源",
+  skillsPath: "路径",
+  skillsEligible: "可用",
+  skillsDisabled: "已禁用",
+  skillsRequiresBins: "需要命令",
+  skillsRequiresEnv: "需要环境变量",
+  skillsRequiresConfig: "需要配置",
+  skillsMissing: "缺失",
   nodesTitle: "节点",
   nodesSub: "已配对设备与在线连接。",
   nodesNoFound: "未找到节点。",
@@ -2129,6 +2383,17 @@ const ZH: Strings = {
   configNoSettingsInSection: "本部分暂无设置",
   configUnsupportedSchemaNode: "不支持的架构节点，请使用原始模式。",
   configSubnavAll: "全部",
+  envVarsSection: "Vars (env.vars)",
+  envModelEnvSection: "模型环境变量 (env.modelEnv)",
+  envShellEnvSection: "Shell 环境 (env.shellEnv)",
+  envVarsKey: "Key",
+  envVarsValue: "Value",
+  envVarsAdd: "添加",
+  envVarsDelete: "删除",
+  envVarsSave: "保存",
+  envVarsEmpty: "暂无环境变量，点击添加创建。",
+  envVarsKeyPlaceholder: "如 API_KEY",
+  envVarsValuePlaceholder: "如 your-secret-value",
   debugSnapshots: "快照",
   debugSnapshotsSub: "状态、健康与心跳数据。",
   debugStatus: "状态",

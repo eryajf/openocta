@@ -103,6 +103,7 @@ func NewRegistry(ctx *Context) Registry {
 		"tts.convert":               TtsConvertHandler,
 		"tts.setProvider":           TtsSetProviderHandler,
 		"config.get":                ConfigGetHandler,
+		"config.env":                ConfigEnvHandler,
 		"config.set":                ConfigSetHandler,
 		"config.apply":              ConfigApplyHandler,
 		"config.patch":              ConfigPatchHandler,

@@ -45,6 +45,49 @@ type LegacyConfigIssue struct {
 	Message string `json:"message"`
 }
 
+// ConfigEnvResponse is the config.env response. Returns env-related config in three separate sections.
+type ConfigEnvResponse struct {
+	Vars     map[string]string            `json:"vars"`
+	ModelEnv map[string]map[string]string `json:"modelEnv"`
+	ShellEnv *config.ShellEnvConfig       `json:"shellEnv"`
+}
+
+// ConfigEnvHandler handles "config.env". Returns vars, modelEnv, and shellEnv separately.
+func ConfigEnvHandler(opts HandlerOpts) error {
+	ctx := opts.Context
+	if ctx == nil || ctx.LoadConfigSnapshot == nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeInternal,
+			Message: "config context not configured",
+		}, nil)
+		return nil
+	}
+	snap, err := ctx.LoadConfigSnapshot()
+	if err != nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeInternal,
+			Message: err.Error(),
+		}, nil)
+		return nil
+	}
+	res := ConfigEnvResponse{
+		Vars:     map[string]string{},
+		ModelEnv: map[string]map[string]string{},
+		ShellEnv: nil,
+	}
+	if snap.Config != nil && snap.Config.Env != nil {
+		if snap.Config.Env.Vars != nil {
+			res.Vars = snap.Config.Env.Vars
+		}
+		if snap.Config.Env.ModelEnv != nil {
+			res.ModelEnv = snap.Config.Env.ModelEnv
+		}
+		res.ShellEnv = snap.Config.Env.ShellEnv
+	}
+	opts.Respond(true, res, nil, nil)
+	return nil
+}
+
 // ConfigGetHandler handles "config.get".
 func ConfigGetHandler(opts HandlerOpts) error {
 	ctx := opts.Context
@@ -251,25 +294,10 @@ func ConfigPatchHandler(opts HandlerOpts) error {
 		}, nil)
 		return nil
 	}
-	currentMap := configToMap(snap.Config)
-	merged := mergePatch(currentMap, patch)
-	mergedJSON, err := json.Marshal(merged)
-	if err != nil {
-		opts.Respond(false, nil, &protocol.ErrorShape{
-			Code:    protocol.ErrCodeInternal,
-			Message: err.Error(),
-		}, nil)
-		return nil
-	}
-	var cfg config.OpenOctaConfig
-	if err := json.Unmarshal(mergedJSON, &cfg); err != nil {
-		opts.Respond(false, nil, &protocol.ErrorShape{
-			Code:    protocol.ErrCodeInvalidRequest,
-			Message: "merged config invalid: " + err.Error(),
-		}, nil)
-		return nil
-	}
-	data, err := json.MarshalIndent(&cfg, "", "  ")
+	// Use raw file content as base to preserve all keys (struct marshal drops omitempty/extra keys)
+	baseMap := ConfigSnapshotToMap(snap)
+	merged := mergePatch(baseMap, patch)
+	data, err := json.MarshalIndent(merged, "", "  ")
 	if err != nil {
 		opts.Respond(false, nil, &protocol.ErrorShape{
 			Code:    protocol.ErrCodeInternal,
@@ -284,11 +312,54 @@ func ConfigPatchHandler(opts HandlerOpts) error {
 		}, nil)
 		return nil
 	}
+	var cfg config.OpenOctaConfig
+	_ = json.Unmarshal(data, &cfg) // best-effort for response; extra keys ignored
+	if opts.Context != nil {
+		opts.Context.Config = &cfg
+	}
 	opts.Respond(true, map[string]interface{}{
 		"ok":     true,
 		"path":   snap.Path,
 		"config": cfg,
 	}, nil, nil)
+	return nil
+}
+
+// ConfigSnapshotToMap returns the config as map from raw file content to preserve all keys.
+func ConfigSnapshotToMap(snap *ConfigSnapshot) map[string]interface{} {
+	if snap == nil {
+		return map[string]interface{}{}
+	}
+	if m, ok := snap.Parsed.(map[string]interface{}); ok {
+		result := make(map[string]interface{}, len(m))
+		for k, v := range m {
+			result[k] = v
+		}
+		return result
+	}
+	if snap.Raw != "" {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(snap.Raw), &m); err == nil {
+			return m
+		}
+	}
+	return map[string]interface{}{}
+}
+
+// WriteConfigMap writes a config map to the given path, preserving all keys.
+func WriteConfigMap(path string, m map[string]interface{}) error {
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
 	return nil
 }
 
@@ -315,6 +386,59 @@ func mergePatch(base, patch map[string]interface{}) map[string]interface{} {
 	for k, v := range patch {
 		if v == nil {
 			delete(result, k)
+			continue
+		}
+		if k == "env" {
+			baseEnv, _ := result["env"].(map[string]interface{})
+			patchEnv, ok := v.(map[string]interface{})
+			if !ok {
+				result[k] = v
+				continue
+			}
+			result["env"] = mergePatchEnv(baseEnv, patchEnv)
+			continue
+		}
+		baseVal, baseOk := result[k].(map[string]interface{})
+		patchVal, patchOk := v.(map[string]interface{})
+		if baseOk && patchOk {
+			result[k] = mergePatch(baseVal, patchVal)
+		} else {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// mergePatchEnv merges env with special handling: modelEnv uses replace-per-modelRef (not recursive merge).
+func mergePatchEnv(base, patch map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range base {
+		result[k] = v
+	}
+	for k, v := range patch {
+		if v == nil {
+			delete(result, k)
+			continue
+		}
+		if k == "modelEnv" {
+			baseModelEnv, _ := result["modelEnv"].(map[string]interface{})
+			patchModelEnv, ok := v.(map[string]interface{})
+			if !ok {
+				result[k] = v
+				continue
+			}
+			merged := make(map[string]interface{})
+			for kk, vv := range baseModelEnv {
+				merged[kk] = vv
+			}
+			for kk, vv := range patchModelEnv {
+				if vv == nil {
+					delete(merged, kk)
+				} else {
+					merged[kk] = vv
+				}
+			}
+			result["modelEnv"] = merged
 			continue
 		}
 		baseVal, baseOk := result[k].(map[string]interface{})

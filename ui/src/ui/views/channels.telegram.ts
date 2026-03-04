@@ -3,7 +3,6 @@ import type { ChannelAccountSnapshot, TelegramStatus } from "../types.ts";
 import type { ChannelsProps } from "./channels.types.ts";
 import { formatAgo } from "../format.ts";
 import { t } from "../strings.js";
-import { renderChannelConfigSection } from "./channels.config.ts";
 
 export function renderTelegramCard(params: {
   props: ChannelsProps;
@@ -109,11 +108,12 @@ export function renderTelegramCard(params: {
           : nothing
       }
 
-      ${renderChannelConfigSection({ channelId: "telegram", props })}
-
       <div class="row" style="margin-top: 12px;">
         <button class="btn" @click=${() => props.onRefresh(true)}>
           ${t("channelProbe")}
+        </button>
+        <button class="btn primary" @click=${() => props.onChannelSelect("telegram")}>
+          ${t("channelsConfigure")}
         </button>
       </div>
     </div>

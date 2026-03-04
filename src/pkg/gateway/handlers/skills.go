@@ -2,7 +2,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -380,35 +379,6 @@ func collectSkillBins(entries []SkillEntry) []string {
 func hasBinary(bin string) bool {
 	_, err := exec.LookPath(bin)
 	return err == nil
-}
-
-// writeConfigFile writes the config to disk.
-func writeConfigFile(cfg *config.OpenOctaConfig, env func(string) string) error {
-	stateDir := paths.ResolveStateDir(env)
-	configPath := paths.ResolveCanonicalConfigPath(env, stateDir)
-
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
-	// Marshal config to JSON with indentation
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	// Write to file atomically
-	tmpPath := configPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write config: %w", err)
-	}
-	if err := os.Rename(tmpPath, configPath); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("failed to rename config: %w", err)
-	}
-
-	return nil
 }
 
 // resolveSkillConfig resolves skill configuration from config.
@@ -937,6 +907,16 @@ func buildWorkspaceSkillStatus(workspaceDir string, cfg *config.OpenOctaConfig, 
 		status := buildSkillStatus(entry, cfg, preferBrew, nodeManager)
 		skillStatuses = append(skillStatuses, status)
 	}
+	sort.Slice(skillStatuses, func(i, j int) bool {
+		ki, kj := skillStatuses[i].SkillKey, skillStatuses[j].SkillKey
+		if ki == "" {
+			ki = skillStatuses[i].Name
+		}
+		if kj == "" {
+			kj = skillStatuses[j].Name
+		}
+		return strings.Compare(strings.ToLower(ki), strings.ToLower(kj)) < 0
+	})
 
 	return SkillStatusReport{
 		WorkspaceDir:     workspaceDir,
@@ -956,21 +936,15 @@ func SkillsStatusHandler(opts HandlerOpts) error {
 		return nil
 	}
 
-	// Load config
-	var cfg *config.OpenOctaConfig
-	if opts.Context != nil && opts.Context.Config != nil {
-		cfg = opts.Context.Config
-	} else {
-		env := func(k string) string { return os.Getenv(k) }
-		loaded, err := config.Load(env)
-		if err != nil {
-			opts.Respond(false, nil, &protocol.ErrorShape{
-				Code:    protocol.ErrCodeInternal,
-				Message: "failed to load config: " + err.Error(),
-			}, nil)
-			return nil
-		}
-		cfg = loaded
+	// Load config from disk so skills.entries (including enabled) is always current
+	env := func(k string) string { return os.Getenv(k) }
+	cfg, err := config.Load(env)
+	if err != nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeInternal,
+			Message: "failed to load config: " + err.Error(),
+		}, nil)
+		return nil
 	}
 
 	// Resolve agent ID
@@ -999,7 +973,6 @@ func SkillsStatusHandler(opts HandlerOpts) error {
 	}
 
 	// Resolve workspace directory
-	env := func(k string) string { return os.Getenv(k) }
 	workspaceDir := resolveAgentWorkspaceDir(cfg, agentID, env)
 
 	// Build status report
@@ -1090,72 +1063,60 @@ func SkillsUpdateHandler(opts HandlerOpts) error {
 		return nil
 	}
 
-	// Load config
-	var cfg *config.OpenOctaConfig
-	if opts.Context != nil && opts.Context.Config != nil {
-		cfg = opts.Context.Config
-	} else {
-		env := func(k string) string { return os.Getenv(k) }
-		loaded, err := config.Load(env)
-		if err != nil {
-			opts.Respond(false, nil, &protocol.ErrorShape{
-				Code:    protocol.ErrCodeInternal,
-				Message: "failed to load config: " + err.Error(),
-			}, nil)
-			return nil
-		}
-		cfg = loaded
+	env := func(k string) string { return os.Getenv(k) }
+	snap, err := LoadConfigSnapshot(env)
+	if err != nil {
+		opts.Respond(false, nil, &protocol.ErrorShape{
+			Code:    protocol.ErrCodeInternal,
+			Message: "failed to load config: " + err.Error(),
+		}, nil)
+		return nil
 	}
 
-	// Ensure skills config exists
-	if cfg.Skills == nil {
-		cfg.Skills = &config.SkillsConfig{}
+	// Use raw file map to preserve all keys; patch only skills.entries[skillKey]
+	cfgMap := ConfigSnapshotToMap(snap)
+	if cfgMap == nil {
+		cfgMap = map[string]interface{}{}
 	}
-	if cfg.Skills.Entries == nil {
-		cfg.Skills.Entries = make(map[string]config.SkillConfig)
+	skillsMap, _ := cfgMap["skills"].(map[string]interface{})
+	if skillsMap == nil {
+		skillsMap = map[string]interface{}{}
+		cfgMap["skills"] = skillsMap
+	}
+	entriesMap, _ := skillsMap["entries"].(map[string]interface{})
+	if entriesMap == nil {
+		entriesMap = map[string]interface{}{}
+		skillsMap["entries"] = entriesMap
+	}
+	current, _ := entriesMap[params.SkillKey].(map[string]interface{})
+	if current == nil {
+		current = map[string]interface{}{}
 	}
 
-	// Get current skill config
-	current := cfg.Skills.Entries[params.SkillKey]
-	if current.Enabled == nil {
-		enabled := true
-		current.Enabled = &enabled
-	}
-
-	// Apply updates
+	// Apply updates to current entry map
 	if params.Enabled != nil {
-		current.Enabled = params.Enabled
+		current["enabled"] = *params.Enabled
 	}
-
 	if params.APIKey != nil {
-		if *params.APIKey == "" {
-			current.APIKey = ""
-		} else {
-			current.APIKey = *params.APIKey
-		}
+		current["apiKey"] = *params.APIKey
 	}
-
 	if params.Env != nil {
-		if current.Env == nil {
-			current.Env = make(map[string]string)
+		envMap, _ := current["env"].(map[string]interface{})
+		if envMap == nil {
+			envMap = map[string]interface{}{}
 		}
-		// Apply env updates
 		for k, v := range params.Env {
 			if v == "" {
-				// Empty value means delete
-				delete(current.Env, k)
+				delete(envMap, k)
 			} else {
-				current.Env[k] = v
+				envMap[k] = v
 			}
 		}
+		current["env"] = envMap
 	}
+	entriesMap[params.SkillKey] = current
 
-	// Update config
-	cfg.Skills.Entries[params.SkillKey] = current
-
-	// Write config file
-	env := func(k string) string { return os.Getenv(k) }
-	if err := writeConfigFile(cfg, env); err != nil {
+	if err := WriteConfigMap(snap.Path, cfgMap); err != nil {
 		opts.Respond(false, nil, &protocol.ErrorShape{
 			Code:    protocol.ErrCodeInternal,
 			Message: "failed to write config: " + err.Error(),
@@ -1168,9 +1129,9 @@ func SkillsUpdateHandler(opts HandlerOpts) error {
 		"ok":       true,
 		"skillKey": params.SkillKey,
 		"config": map[string]interface{}{
-			"enabled": current.Enabled,
-			"apiKey":  current.APIKey,
-			"env":     current.Env,
+			"enabled": current["enabled"],
+			"apiKey":  current["apiKey"],
+			"env":     current["env"],
 		},
 	}
 

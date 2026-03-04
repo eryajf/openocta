@@ -92,8 +92,18 @@ func resolveModelFromConfig(modelRef string) (provider string, modelID string) {
 	return "anthropic", strings.TrimSpace(modelRef)
 }
 
-// getEnvVar returns config.env.vars[key] or os.Getenv(key).
-func getEnvVar(cfg *config.OpenOctaConfig, key string) string {
+// getEnvVar returns env var for key. Checks modelEnv[modelRef] first (overrides Vars), then config.env.vars, then os.Getenv.
+// modelRef can be empty; if non-empty it should be "provider/modelId" to look up per-model env.
+func getEnvVar(cfg *config.OpenOctaConfig, key string, modelRef string) string {
+	// 1. ModelEnv overrides: per-model env vars
+	if modelRef != "" && cfg != nil && cfg.Env != nil && cfg.Env.ModelEnv != nil {
+		if m, ok := cfg.Env.ModelEnv[modelRef]; ok && m != nil {
+			if val, ok := m[key]; ok && val != "" {
+				return val
+			}
+		}
+	}
+	// 2. Global vars from config.env.vars
 	if cfg != nil && cfg.Env != nil && cfg.Env.Vars != nil {
 		if val, ok := cfg.Env.Vars[key]; ok && val != "" {
 			return val
@@ -103,24 +113,23 @@ func getEnvVar(cfg *config.OpenOctaConfig, key string) string {
 }
 
 // resolveProviderAPIKey returns the API key for a provider from config or env.
-// If apiKeyFromConfig is empty, falls back to getEnvVar(cfg, strings.ToUpper(provider)+"_API_KEY").
-// If apiKeyFromConfig starts with "$", it is treated as env var name (e.g. $LITELLM_API_KEY).
-func resolveProviderAPIKey(cfg *config.OpenOctaConfig, provider, apiKeyFromConfig string) string {
+// modelRef is passed to getEnvVar for per-model env override (e.g. "provider/modelId").
+func resolveProviderAPIKey(cfg *config.OpenOctaConfig, provider, apiKeyFromConfig, modelRef string) string {
 	apiKey := strings.TrimSpace(apiKeyFromConfig)
 	if apiKey != "" {
 		if strings.HasPrefix(apiKey, "$") {
 			envKey := strings.TrimPrefix(apiKey, "$")
-			return getEnvVar(cfg, envKey)
+			return getEnvVar(cfg, envKey, modelRef)
 		}
 		// If it looks like a literal key (sk-, gsk-, xai-, etc.), use as-is
 		if strings.HasPrefix(apiKey, "sk-") || strings.HasPrefix(apiKey, "gsk-") || strings.HasPrefix(apiKey, "xai-") || strings.HasPrefix(apiKey, "bce-") {
 			return apiKey
 		}
 		// Otherwise treat as env var name (e.g. LITELLM_API_KEY)
-		return getEnvVar(cfg, apiKey)
+		return getEnvVar(cfg, apiKey, modelRef)
 	}
 	envKey := strings.ToUpper(strings.ReplaceAll(provider, "-", "_")) + "_API_KEY"
-	return getEnvVar(cfg, envKey)
+	return getEnvVar(cfg, envKey, modelRef)
 }
 
 // resolveAgentModelRef returns the primary model reference from agent config or defaults.
@@ -152,11 +161,7 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 
 	if cfg != nil && cfg.Models != nil && cfg.Models.Providers != nil {
 		if providerCfg, ok := cfg.Models.Providers[provider]; ok {
-			apiKey := resolveProviderAPIKey(cfg, provider, providerCfg.APIKey)
-			if apiKey == "" {
-				return nil, fmt.Errorf("API key for provider %s not found: check config.models.providers.%s.apiKey (can be a key value or env var name like $LITELLM_API_KEY), or set it in config.env.vars", provider, provider)
-			}
-
+			// Resolve foundModelID first for modelRef in env lookup
 			foundModelID := modelID
 			if foundModelID == "" && len(providerCfg.Models) > 0 {
 				foundModelID = providerCfg.Models[0].ID
@@ -171,6 +176,11 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 				if !modelFound && len(providerCfg.Models) > 0 {
 					foundModelID = providerCfg.Models[0].ID
 				}
+			}
+			modelRefForEnv := provider + "/" + foundModelID
+			apiKey := resolveProviderAPIKey(cfg, provider, providerCfg.APIKey, modelRefForEnv)
+			if apiKey == "" {
+				return nil, fmt.Errorf("API key for provider %s not found: check config.models.providers.%s.apiKey (can be a key value or env var name like $LITELLM_API_KEY), or set it in config.env.vars", provider, provider)
 			}
 			if foundModelID == "" {
 				return nil, fmt.Errorf("no model specified for provider %s and no models defined in config.models.providers.%s", provider, provider)
@@ -195,19 +205,13 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 
 	// Built-in providers (when not defined in config.models.providers)
 	if builtIn, ok := builtInProviders[provider]; ok {
-		apiKey := getEnvVar(cfg, builtIn.envKey)
-		if apiKey == "" {
-			return nil, fmt.Errorf("API key for provider %s not found: set %s in config.env.vars or environment", provider, builtIn.envKey)
-		}
-		// Allow overriding model/baseURL via env vars, with special handling for kimi-coding (KIMI_*).
-		namePrefix := strings.ToUpper(strings.ReplaceAll(provider, "-", "_"))
-		if provider == "kimi-coding" {
-			namePrefix = "KIMI"
-		}
-
 		resolvedModel := modelID
 		if resolvedModel == "" {
-			if envModel := getEnvVar(cfg, namePrefix+"_MODEL"); envModel != "" {
+			namePrefix := strings.ToUpper(strings.ReplaceAll(provider, "-", "_"))
+			if provider == "kimi-coding" {
+				namePrefix = "KIMI"
+			}
+			if envModel := getEnvVar(cfg, namePrefix+"_MODEL", ""); envModel != "" {
 				resolvedModel = strings.TrimSpace(envModel)
 			} else if builtIn.defaultModel != "" {
 				resolvedModel = builtIn.defaultModel
@@ -216,8 +220,18 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 		if resolvedModel == "" {
 			return nil, fmt.Errorf("no model specified for provider %s (use model ref like %s/<modelId>)", provider, provider)
 		}
+		modelRefForEnv := provider + "/" + resolvedModel
+		apiKey := getEnvVar(cfg, builtIn.envKey, modelRefForEnv)
+		if apiKey == "" {
+			return nil, fmt.Errorf("API key for provider %s not found: set %s in config.env.vars or environment", provider, builtIn.envKey)
+		}
+		// Allow overriding model/baseURL via env vars, with special handling for kimi-coding (KIMI_*).
+		namePrefix := strings.ToUpper(strings.ReplaceAll(provider, "-", "_"))
+		if provider == "kimi-coding" {
+			namePrefix = "KIMI"
+		}
 		baseURL := builtIn.baseURL
-		if envBase := getEnvVar(cfg, namePrefix+"_BASE_URL"); envBase != "" {
+		if envBase := getEnvVar(cfg, namePrefix+"_BASE_URL", modelRefForEnv); envBase != "" {
 			baseURL = strings.TrimSpace(envBase)
 		}
 		if builtIn.useAnthropic {
@@ -241,31 +255,33 @@ func CreateModelFactoryFromConfig(cfg *config.OpenOctaConfig, agentID string) (a
 
 	switch provider {
 	case "anthropic":
-		apiKey := getEnvVar(cfg, "ANTHROPIC_API_KEY")
-		if apiKey == "" {
-			return nil, fmt.Errorf("ANTHROPIC_API_KEY not found: check config.env.vars.ANTHROPIC_API_KEY in config file or ANTHROPIC_API_KEY environment variable")
-		}
 		if modelID == "" {
 			modelID = "claude-sonnet-4-5-20250929"
+		}
+		modelRefForEnv := "anthropic/" + modelID
+		apiKey := getEnvVar(cfg, "ANTHROPIC_API_KEY", modelRefForEnv)
+		if apiKey == "" {
+			return nil, fmt.Errorf("ANTHROPIC_API_KEY not found: check config.env.vars.ANTHROPIC_API_KEY in config file or ANTHROPIC_API_KEY environment variable")
 		}
 		return &model.AnthropicProvider{
 			ModelName: modelID,
 			APIKey:    apiKey,
 		}, nil
 	case "openai":
-		apiKey := getEnvVar(cfg, "OPENAI_API_KEY")
-		if apiKey == "" {
-			return nil, fmt.Errorf("OPENAI_API_KEY not found: check config.env.vars.OPENAI_API_KEY in config file or OPENAI_API_KEY environment variable")
-		}
 		if modelID == "" {
 			modelID = "gpt-4"
+		}
+		modelRefForEnv := "openai/" + modelID
+		apiKey := getEnvVar(cfg, "OPENAI_API_KEY", modelRefForEnv)
+		if apiKey == "" {
+			return nil, fmt.Errorf("OPENAI_API_KEY not found: check config.env.vars.OPENAI_API_KEY in config file or OPENAI_API_KEY environment variable")
 		}
 		return &model.OpenAIProvider{
 			ModelName: modelID,
 			APIKey:    apiKey,
 		}, nil
 	default:
-		apiKey := getEnvVar(cfg, "ANTHROPIC_API_KEY")
+		apiKey := getEnvVar(cfg, "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-4-5-20250929")
 		if apiKey == "" {
 			return &model.AnthropicProvider{
 				ModelName: "claude-sonnet-4-5-20250929",

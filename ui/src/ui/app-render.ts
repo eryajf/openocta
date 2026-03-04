@@ -78,6 +78,7 @@ import { renderAgents } from "./views/agents.ts";
 import { renderChannels } from "./views/channels.ts";
 import { renderChat } from "./views/chat.ts";
 import { renderConfig } from "./views/config.ts";
+import { renderEnvVars } from "./views/env-vars.ts";
 import { renderCron } from "./views/cron.ts";
 import { renderDebug } from "./views/debug.ts";
 import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
@@ -88,10 +89,66 @@ import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
+import { renderMcp } from "./views/mcp.ts";
+import { renderModels } from "./views/models.ts";
 import { renderUsage } from "./views/usage.ts";
+import {
+  handleMcpAddServer,
+  handleMcpAddClose,
+  handleMcpAddNameChange,
+  handleMcpAddFormPatch,
+  handleMcpAddRawChange,
+  handleMcpAddConnectionTypeChange,
+  handleMcpAddEditModeChange,
+  handleMcpAddSubmit,
+  handleMcpCancel,
+  handleMcpDelete,
+  handleMcpFormPatch,
+  handleMcpRawChange,
+  handleMcpRefresh,
+  handleMcpSave,
+  handleMcpSelect,
+  handleMcpToggle,
+  handleMcpViewModeChange,
+  handleMcpEditConnectionTypeChange,
+} from "./app-mcp.ts";
+import {
+  handleModelsAddProvider,
+  handleModelsAddProviderModalClose,
+  handleModelsAddProviderFormChange,
+  handleModelsAddProviderSubmit,
+  handleModelsAddModel,
+  handleModelsAddModelModalClose,
+  handleModelsAddModelFormChange,
+  handleModelsAddModelSubmit,
+  handleModelsRemoveModel,
+  handleModelsPatchModelEnv,
+  handleModelsCancel,
+  handleModelsPatch,
+  handleModelsSave,
+  handleModelsSelect,
+  handleModelsRefresh,
+  handleModelsUseModel,
+  handleModelsUseModelClick,
+  handleModelsUseModelModalClose,
+} from "./app-models.ts";
 
 const AVATAR_DATA_RE = /^data:/i;
 const AVATAR_HTTP_RE = /^https?:\/\//i;
+
+function resolveDefaultModelRef(config: Record<string, unknown> | null | undefined): string | null {
+  if (!config?.agents) return null;
+  const agents = config.agents as Record<string, unknown>;
+  const defaults = agents.defaults as Record<string, unknown> | undefined;
+  if (!defaults?.model) return null;
+  const model = defaults.model;
+  if (typeof model === "string" && model) return model;
+  if (model && typeof model === "object" && !Array.isArray(model)) {
+    const primary = (model as Record<string, unknown>).primary;
+    return typeof primary === "string" && primary ? primary : null;
+  }
+  return null;
+}
 
 function resolveAssistantAvatarUrl(state: AppViewState): string | undefined {
   const list = state.agentsList?.agents ?? [];
@@ -269,9 +326,13 @@ export function renderApp(state: AppViewState) {
                 configUiHints: state.configUiHints,
                 configSaving: state.configSaving,
                 configFormDirty: state.configFormDirty,
+                selectedChannelId: state.channelsSelectedChannelId,
                 nostrProfileFormState: state.nostrProfileFormState,
                 nostrProfileAccountId: state.nostrProfileAccountId,
                 onRefresh: (probe) => loadChannels(state, probe),
+                onChannelSelect: (channelId) => {
+                  state.channelsSelectedChannelId = channelId;
+                },
                 onWhatsAppStart: (force) => state.handleWhatsAppStart(force),
                 onWhatsAppWait: () => state.handleWhatsAppWait(),
                 onWhatsAppLogout: () => state.handleWhatsAppLogout(),
@@ -1012,6 +1073,8 @@ export function renderApp(state: AppViewState) {
                 edits: state.skillEdits,
                 messages: state.skillMessages,
                 busyKey: state.skillsBusyKey,
+                viewMode: state.skillsViewMode,
+                onViewModeChange: (mode) => (state.skillsViewMode = mode),
                 addModalOpen: state.skillsAddModalOpen,
                 uploadName: state.skillsUploadName,
                 uploadFile: state.skillsUploadFile,
@@ -1061,6 +1124,54 @@ export function renderApp(state: AppViewState) {
                 onInstall: (skillKey, name, installId) =>
                   installSkill(state, skillKey, name, installId),
                 onDelete: (skillKey) => deleteSkill(state, skillKey),
+                selectedSkillKey: state.skillsSelectedSkillKey,
+                onSkillDetailClick: (key) => (state.skillsSelectedSkillKey = key),
+              })
+            : nothing
+        }
+
+        ${
+          state.tab === "mcp"
+            ? renderMcp({
+                servers:
+                  (state.configForm?.mcp as { servers?: Record<string, import("./views/mcp.ts").McpServerEntry> })
+                    ?.servers ?? {},
+                loading: state.configLoading,
+                saving: state.configSaving,
+                selectedKey: state.mcpSelectedKey,
+                viewMode: state.mcpViewMode,
+                addModalOpen: state.mcpAddModalOpen,
+                addName: state.mcpAddName,
+                addDraft: (state.mcpAddDraft ?? {}) as import("./views/mcp.ts").McpServerEntry,
+                addConnectionType: state.mcpAddConnectionType,
+                addEditMode: state.mcpAddEditMode,
+                addFormDirty: true,
+                addRawJson: state.mcpAddRawJson,
+                addRawError: state.mcpAddRawError,
+                editMode: state.mcpEditMode,
+                editConnectionType: state.mcpEditConnectionType,
+                formDirty: state.mcpFormDirty,
+                rawJson: state.mcpRawJson,
+                rawError: state.mcpRawError,
+                onRefresh: () => handleMcpRefresh(state),
+                onViewModeChange: (mode) => handleMcpViewModeChange(state, mode),
+                onAddServer: () => handleMcpAddServer(state),
+                onAddClose: () => handleMcpAddClose(state),
+                onAddNameChange: (name) => handleMcpAddNameChange(state, name),
+                onAddFormPatch: (patch) => handleMcpAddFormPatch(state, patch),
+                onAddRawChange: (json) => handleMcpAddRawChange(state, json),
+                onAddConnectionTypeChange: (type) => handleMcpAddConnectionTypeChange(state, type),
+                onAddEditModeChange: (mode) => handleMcpAddEditModeChange(state, mode),
+                onAddSubmit: () => handleMcpAddSubmit(state),
+                onSelect: (key) => handleMcpSelect(state, key),
+                onToggle: (key, enabled) => handleMcpToggle(state, key, enabled),
+                onFormPatch: (key, patch) => handleMcpFormPatch(state, key, patch),
+                onRawChange: (key, json) => handleMcpRawChange(state, key, json),
+                onEditModeChange: (mode) => (state.mcpEditMode = mode),
+                onEditConnectionTypeChange: (type) => handleMcpEditConnectionTypeChange(state, type),
+                onSave: () => handleMcpSave(state),
+                onCancel: () => handleMcpCancel(state),
+                onDelete: (key) => handleMcpDelete(state, key),
               })
             : nothing
         }
@@ -1409,6 +1520,69 @@ export function renderApp(state: AppViewState) {
         }
 
         ${
+          state.tab === "envVars"
+            ? renderEnvVars({
+                vars:
+                  (state.configForm?.env as { vars?: Record<string, string> } | undefined)?.vars ??
+                  (state.configSnapshot?.config as { env?: { vars?: Record<string, string> } } | undefined)
+                    ?.env?.vars ??
+                  {},
+                modelEnv:
+                  (state.configForm?.env as { modelEnv?: Record<string, Record<string, string>> } | undefined)
+                    ?.modelEnv ??
+                  (state.configSnapshot?.config as { env?: { modelEnv?: Record<string, Record<string, string>> } } | undefined)
+                    ?.env?.modelEnv ??
+                  {},
+                shellEnv:
+                  (state.configForm?.env as { shellEnv?: { enabled?: boolean; timeoutMs?: number } } | undefined)
+                    ?.shellEnv ??
+                  (state.configSnapshot?.config as { env?: { shellEnv?: { enabled?: boolean; timeoutMs?: number } } } | undefined)
+                    ?.env?.shellEnv ??
+                  null,
+                dirty: state.configFormDirty,
+                loading: state.configLoading,
+                saving: state.configSaving,
+                connected: state.connected,
+                onVarsChange: (next) => {
+                  updateConfigFormValue(state, ["env", "vars"], next);
+                },
+                onModelEnvChange: (next) => {
+                  updateConfigFormValue(state, ["env", "modelEnv"], next);
+                },
+                onShellEnvChange: (next) => {
+                  updateConfigFormValue(state, ["env", "shellEnv"], next);
+                },
+                onSave: async () => {
+                  const envForm = state.configForm?.env as {
+                    vars?: Record<string, string>;
+                    modelEnv?: Record<string, Record<string, string>>;
+                    shellEnv?: { enabled?: boolean; timeoutMs?: number };
+                  } | undefined;
+                  const raw = envForm?.vars ?? {};
+                  const filtered: Record<string, string> = {};
+                  for (const [k, v] of Object.entries(raw)) {
+                    if (k.trim()) filtered[k.trim()] = v;
+                  }
+                  updateConfigFormValue(state, ["env", "vars"], filtered);
+                  const rawModelEnv = envForm?.modelEnv ?? {};
+                  const filteredModelEnv: Record<string, Record<string, string>> = {};
+                  for (const [modelRef, ev] of Object.entries(rawModelEnv)) {
+                    if (!ev || typeof ev !== "object") continue;
+                    const f: Record<string, string> = {};
+                    for (const [k, v] of Object.entries(ev)) {
+                      if (k.trim() && k !== "__new__") f[k.trim()] = v;
+                    }
+                    if (Object.keys(f).length > 0) filteredModelEnv[modelRef] = f;
+                  }
+                  updateConfigFormValue(state, ["env", "modelEnv"], filteredModelEnv);
+                  await saveConfig(state);
+                },
+                onReload: () => loadConfig(state),
+              })
+            : nothing
+        }
+
+        ${
           state.tab === "config"
             ? renderConfig({
                 raw: state.configRaw,
@@ -1444,6 +1618,51 @@ export function renderApp(state: AppViewState) {
                 onSave: () => saveConfig(state),
                 onApply: () => applyConfig(state),
                 onUpdate: () => runUpdate(state),
+              })
+            : nothing
+        }
+
+        ${
+          state.tab === "models"
+            ? renderModels({
+                providers:
+                  (state.configForm?.models as { providers?: Record<string, import("./views/models.ts").ModelProvider> })
+                    ?.providers ?? {},
+                modelEnv:
+                  (state.configForm?.env as { modelEnv?: Record<string, Record<string, string>> })?.modelEnv ?? {},
+                defaultModelRef: resolveDefaultModelRef(state.configForm),
+                loading: state.configLoading,
+                saving: state.configSaving,
+                selectedProvider: state.modelsSelectedProvider,
+                viewMode: state.modelsViewMode,
+                formDirty: state.modelsFormDirty,
+                addProviderModalOpen: state.modelsAddProviderModalOpen,
+                addProviderForm: state.modelsAddProviderForm,
+                addModelModalOpen: state.modelsAddModelModalOpen,
+                addModelForm: state.modelsAddModelForm,
+                useModelModalOpen: state.modelsUseModelModalOpen,
+                useModelModalProvider: state.modelsUseModelModalProvider,
+                saveError: state.modelsSaveError,
+                onRefresh: () => handleModelsRefresh(state),
+                onAddProvider: () => handleModelsAddProvider(state),
+                onAddProviderModalClose: () => handleModelsAddProviderModalClose(state),
+                onAddProviderFormChange: (form) => handleModelsAddProviderFormChange(state, form),
+                onAddProviderSubmit: () => handleModelsAddProviderSubmit(state),
+                onSelect: (key) => handleModelsSelect(state, key),
+                onViewModeChange: (mode) => (state.modelsViewMode = mode),
+                onPatch: (key, patch) => handleModelsPatch(state, key, patch),
+                onAddModel: (providerKey) => handleModelsAddModel(state, providerKey),
+                onAddModelModalClose: () => handleModelsAddModelModalClose(state),
+                onAddModelFormChange: (form) => handleModelsAddModelFormChange(state, form),
+                onAddModelSubmit: (providerKey) => handleModelsAddModelSubmit(state, providerKey),
+                onRemoveModel: (providerKey, modelId) => handleModelsRemoveModel(state, providerKey, modelId),
+                onPatchModelEnv: (providerKey, modelId, envVars) =>
+                  handleModelsPatchModelEnv(state, providerKey, modelId, envVars),
+                onSave: () => handleModelsSave(state),
+                onCancel: () => handleModelsCancel(state),
+                onUseModelClick: (provider) => handleModelsUseModelClick(state, provider),
+                onUseModelModalClose: () => handleModelsUseModelModalClose(state),
+                onUseModel: (provider, modelId) => handleModelsUseModel(state, provider, modelId),
               })
             : nothing
         }

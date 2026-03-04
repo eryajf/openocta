@@ -46,6 +46,8 @@ function groupSkills(skills: SkillStatusEntry[]): SkillGroup[] {
   return ordered;
 }
 
+export type SkillViewMode = "list" | "card";
+
 export type SkillsProps = {
   loading: boolean;
   report: SkillStatusReport | null;
@@ -60,8 +62,10 @@ export type SkillsProps = {
   uploadError: string | null;
   uploadTemplate: string | null;
   uploadBusy: boolean;
+  viewMode: SkillViewMode;
   onFilterChange: (next: string) => void;
   onRefresh: () => void;
+  onViewModeChange: (mode: SkillViewMode) => void;
   onAddClick: () => void;
   onAddClose: () => void;
   onUploadNameChange: (next: string) => void;
@@ -72,6 +76,8 @@ export type SkillsProps = {
   onSaveKey: (skillKey: string) => void;
   onInstall: (skillKey: string, name: string, installId: string) => void;
   onDelete: (skillKey: string) => void;
+  selectedSkillKey: string | null;
+  onSkillDetailClick: (skillKey: string | null) => void;
 };
 
 export function renderSkills(props: SkillsProps) {
@@ -91,7 +97,37 @@ export function renderSkills(props: SkillsProps) {
           <div class="card-title">${t("skillsTitle")}</div>
           <div class="card-sub">${t("skillsSub")}</div>
         </div>
-        <div class="row" style="gap: 8px;">
+        <div class="row" style="gap: 8px; align-items: center;">
+          <div class="row" style="gap: 4px;" title=${t("mcpViewList")}>
+            <button
+              type="button"
+              class="btn ${props.viewMode === "list" ? "primary" : ""}"
+              style="padding: 6px 10px;"
+              @click=${() => props.onViewModeChange("list")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="btn ${props.viewMode === "card" ? "primary" : ""}"
+              style="padding: 6px 10px;"
+              @click=${() => props.onViewModeChange("card")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+              </svg>
+            </button>
+          </div>
           <button class="btn primary" ?disabled=${props.loading} @click=${props.onAddClick}>
             ${t("skillsAdd")}
           </button>
@@ -199,6 +235,17 @@ export function renderSkills(props: SkillsProps) {
       }
 
       ${
+        props.selectedSkillKey
+          ? (() => {
+              const skill = skills.find((s) => s.skillKey === props.selectedSkillKey);
+              return skill
+                ? renderSkillDetailModal(skill, () => props.onSkillDetailClick(null))
+                : nothing;
+            })()
+          : nothing
+      }
+
+      ${
         filtered.length === 0
           ? html`
               <div class="muted" style="margin-top: 16px">No skills found.</div>
@@ -213,9 +260,25 @@ export function renderSkills(props: SkillsProps) {
                       <span>${group.label}</span>
                       <span class="muted">${group.skills.length}</span>
                     </summary>
-                    <div class="list skills-grid">
-                      ${group.skills.map((skill) => renderSkill(skill, props))}
-                    </div>
+                    ${
+                      props.viewMode === "list"
+                        ? html`
+                            <div class="skills-table table" style="margin-top: 8px;">
+                              <div class="skills-table-head table-head">
+                                <div>${t("mcpTableName")}</div>
+                                <div>${t("skillsSource")}</div>
+                                <div>Status</div>
+                                <div>${t("mcpTableActions")}</div>
+                              </div>
+                              ${group.skills.map((skill) => renderSkillListRow(skill, props))}
+                            </div>
+                          `
+                        : html`
+                            <div class="skills-card-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 8px;">
+                              ${group.skills.map((skill) => renderSkillCard(skill, props))}
+                            </div>
+                          `
+                    }
                   </details>
                 `;
               })}
@@ -223,6 +286,160 @@ export function renderSkills(props: SkillsProps) {
           `
       }
     </section>
+  `;
+}
+
+function renderSkillListRow(skill: SkillStatusEntry, props: SkillsProps) {
+  const busy = props.busyKey === skill.skillKey;
+  const canInstall = skill.install.length > 0 && skill.missing.bins.length > 0;
+  const statusLabel = skill.disabled ? "disabled" : skill.eligible ? "eligible" : "blocked";
+  return html`
+    <div
+      class="skills-table-row table-row ${props.selectedSkillKey === skill.skillKey ? "list-item-selected" : ""}"
+      style="cursor: pointer;"
+      @click=${() => props.onSkillDetailClick(skill.skillKey)}
+    >
+      <div class="skills-table-cell">
+        <div style="font-weight: 500;">${skill.emoji ? `${skill.emoji} ` : ""}${skill.name}</div>
+        <div class="muted" style="font-size: 12px; margin-top: 2px;">${clampText(skill.description, 120)}</div>
+      </div>
+      <div class="skills-table-cell muted" style="font-size: 13px;">
+        ${skill.source}
+      </div>
+      <div class="skills-table-cell">
+        <span class="chip ${skill.eligible && !skill.disabled ? "chip-ok" : "chip-warn"}" style="font-size: 12px;">
+          ${statusLabel}
+        </span>
+      </div>
+      <div class="skills-table-cell row" style="gap: 6px; justify-content: flex-start;" @click=${(e: Event) => e.stopPropagation()}>
+        ${
+          (skill.source === "openclaw-managed" || skill.source === "openclaw-extra") && props.onDelete
+            ? html`
+                <button
+                  class="btn btn--sm"
+                  style="color: var(--danger-color, #d14343);"
+                  ?disabled=${busy}
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    if (confirm(t("skillsDeleteConfirm"))) props.onDelete(skill.skillKey);
+                  }}
+                >
+                  ${t("skillsDelete")}
+                </button>
+              `
+            : nothing
+        }
+        <button
+          class="btn btn--sm ${!skill.disabled ? "btn-ok" : ""}"
+          ?disabled=${busy}
+          @click=${(e: Event) => {
+            e.stopPropagation();
+            props.onToggle(skill.skillKey, skill.disabled);
+          }}
+        >
+          ${skill.disabled ? "Enable" : "Disable"}
+        </button>
+        ${
+          canInstall
+            ? html`
+                <button
+                  class="btn btn--sm"
+                  ?disabled=${busy}
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    props.onInstall(skill.skillKey, skill.name, skill.install[0].id);
+                  }}
+                >
+                  ${busy ? "Installing…" : skill.install[0].label}
+                </button>
+              `
+            : nothing
+        }
+      </div>
+    </div>
+  `;
+}
+
+function renderSkillCard(skill: SkillStatusEntry, props: SkillsProps) {
+  const busy = props.busyKey === skill.skillKey;
+  const canInstall = skill.install.length > 0 && skill.missing.bins.length > 0;
+  const statusLabel = skill.disabled ? "disabled" : skill.eligible ? "eligible" : "blocked";
+  return html`
+    <div
+      class="skills-server-card ${props.selectedSkillKey === skill.skillKey ? "list-item-selected" : ""}"
+      style="cursor: pointer;"
+      @click=${() => props.onSkillDetailClick(skill.skillKey)}
+    >
+      <div class="skills-server-card__header">
+        <div class="skills-server-card__icon">
+          ${skill.emoji
+            ? html`<span style="font-size: 20px;">${skill.emoji}</span>`
+            : html`
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                </svg>
+              `
+          }
+        </div>
+        <div class="skills-server-card__title-row" style="min-width: 0;">
+          <span class="skills-server-card__name">${skill.name}</span>
+          <span class="chip ${skill.eligible && !skill.disabled ? "chip-ok" : "chip-warn"}" style="font-size: 11px;">${statusLabel}</span>
+        </div>
+      </div>
+      <div class="skills-server-card__sub muted" style="font-size: 12px;">${clampText(skill.description, 80)}</div>
+      <div class="skills-server-card__footer" @click=${(e: Event) => e.stopPropagation()}>
+        ${
+          (skill.source === "openclaw-managed" || skill.source === "openclaw-extra") && props.onDelete
+            ? html`
+                <button
+                  class="btn btn--sm"
+                  style="color: var(--danger-color, #d14343); padding: 4px 8px;"
+                  ?disabled=${busy}
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    if (confirm(t("skillsDeleteConfirm"))) props.onDelete(skill.skillKey);
+                  }}
+                  title=${t("skillsDelete")}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                  </svg>
+                </button>
+              `
+            : nothing
+        }
+        <button
+          class="btn btn--sm ${!skill.disabled ? "btn-ok" : ""}"
+          ?disabled=${busy}
+          @click=${(e: Event) => {
+            e.stopPropagation();
+            props.onToggle(skill.skillKey, skill.disabled);
+          }}
+        >
+          ${skill.disabled ? "Enable" : "Disable"}
+        </button>
+        ${
+          canInstall
+            ? html`
+                <button
+                  class="btn btn--sm"
+                  ?disabled=${busy}
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    props.onInstall(skill.skillKey, skill.name, skill.install[0].id);
+                  }}
+                >
+                  ${busy ? "Installing…" : skill.install[0].label}
+                </button>
+              `
+            : nothing
+        }
+      </div>
+    </div>
   `;
 }
 
@@ -246,7 +463,11 @@ function renderSkill(skill: SkillStatusEntry, props: SkillsProps) {
     reasons.push("blocked by allowlist");
   }
   return html`
-    <div class="list-item">
+    <div
+      class="list-item"
+      style="cursor: pointer;"
+      @click=${() => props.onSkillDetailClick(skill.skillKey)}
+    >
       <div class="list-main">
         <div class="list-title">
           ${skill.emoji ? `${skill.emoji} ` : ""}${skill.name}
@@ -293,15 +514,16 @@ function renderSkill(skill: SkillStatusEntry, props: SkillsProps) {
       </div>
       <div class="list-meta">
         <div class="row" style="justify-content: flex-end; flex-wrap: wrap; gap: 8px;">
-          ${
-            (skill.source === "openclaw-managed" || skill.source === "openclaw-extra") &&
-            props.onDelete
-              ? html`
+        ${
+          (skill.source === "openclaw-managed" || skill.source === "openclaw-extra") &&
+          props.onDelete
+            ? html`
                   <button
                     class="btn"
                     style="color: var(--danger-color, #d14343);"
                     ?disabled=${busy}
-                    @click=${() => {
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
                       if (confirm(t("skillsDeleteConfirm"))) {
                         props.onDelete(skill.skillKey);
                       }
@@ -315,7 +537,10 @@ function renderSkill(skill: SkillStatusEntry, props: SkillsProps) {
           <button
             class="btn"
             ?disabled=${busy}
-            @click=${() => props.onToggle(skill.skillKey, skill.disabled)}
+            @click=${(e: Event) => {
+              e.stopPropagation();
+              props.onToggle(skill.skillKey, skill.disabled);
+            }}
           >
             ${skill.disabled ? "Enable" : "Disable"}
           </button>
@@ -324,7 +549,10 @@ function renderSkill(skill: SkillStatusEntry, props: SkillsProps) {
               ? html`<button
                 class="btn"
                 ?disabled=${busy}
-                @click=${() => props.onInstall(skill.skillKey, skill.name, skill.install[0].id)}
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  props.onInstall(skill.skillKey, skill.name, skill.install[0].id);
+                }}
               >
                 ${busy ? "Installing…" : skill.install[0].label}
               </button>`
@@ -353,19 +581,111 @@ function renderSkill(skill: SkillStatusEntry, props: SkillsProps) {
                 <input
                   type="password"
                   .value=${apiKey}
-                  @input=${(e: Event) =>
-                    props.onEdit(skill.skillKey, (e.target as HTMLInputElement).value)}
+                  @input=${(e: Event) => {
+                    e.stopPropagation();
+                    props.onEdit(skill.skillKey, (e.target as HTMLInputElement).value);
+                  }}
                 />
               </div>
               <button
                 class="btn primary"
                 style="margin-top: 8px;"
                 ?disabled=${busy}
-                @click=${() => props.onSaveKey(skill.skillKey)}
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  props.onSaveKey(skill.skillKey);
+                }}
               >
                 Save key
               </button>
             `
+            : nothing
+        }
+      </div>
+    </div>
+  `;
+}
+
+function renderSkillDetailModal(skill: SkillStatusEntry, onClose: () => void) {
+  const missing = [
+    ...skill.missing.bins.map((b) => `bin:${b}`),
+    ...skill.missing.env.map((e) => `env:${e}`),
+    ...skill.missing.config.map((c) => `config:${c}`),
+    ...skill.missing.os.map((o) => `os:${o}`),
+  ];
+  return html`
+    <div class="modal-overlay" @click=${onClose}>
+      <div class="modal card" style="max-width: 480px;" @click=${(e: Event) => e.stopPropagation()}>
+        <div class="row" style="justify-content: space-between; align-items: center;">
+          <div class="card-title">${skill.emoji ? `${skill.emoji} ` : ""}${skill.name}</div>
+          <button class="btn" @click=${onClose}>×</button>
+        </div>
+        <div class="card-sub" style="margin-top: 4px;">${skill.description}</div>
+        <div class="status-list" style="margin-top: 16px;">
+          <div>
+            <span class="label">${t("skillsSource")}</span>
+            <span>${skill.source}</span>
+          </div>
+          <div>
+            <span class="label">${t("skillsPath")}</span>
+            <span class="monospace" style="font-size: 12px;">${skill.filePath}</span>
+          </div>
+          <div>
+            <span class="label">${t("skillsEligible")}</span>
+            <span>${skill.eligible ? t("commonYes") : t("commonNo")}</span>
+          </div>
+          <div>
+            <span class="label">${t("skillsDisabled")}</span>
+            <span>${skill.disabled ? t("commonYes") : t("commonNo")}</span>
+          </div>
+          ${
+            skill.requirements.bins.length > 0
+              ? html`
+                  <div>
+                    <span class="label">${t("skillsRequiresBins")}</span>
+                    <span>${skill.requirements.bins.join(", ")}</span>
+                  </div>
+                `
+              : nothing
+          }
+          ${
+            skill.requirements.env.length > 0
+              ? html`
+                  <div>
+                    <span class="label">${t("skillsRequiresEnv")}</span>
+                    <span>${skill.requirements.env.join(", ")}</span>
+                  </div>
+                `
+              : nothing
+          }
+          ${
+            skill.requirements.config.length > 0
+              ? html`
+                  <div>
+                    <span class="label">${t("skillsRequiresConfig")}</span>
+                    <span>${skill.requirements.config.join(", ")}</span>
+                  </div>
+                `
+              : nothing
+          }
+          ${
+            missing.length > 0
+              ? html`
+                  <div>
+                    <span class="label">${t("skillsMissing")}</span>
+                    <span>${missing.join(", ")}</span>
+                  </div>
+                `
+              : nothing
+          }
+        </div>
+        ${
+          skill.homepage
+            ? html`
+                <div style="margin-top: 12px;">
+                  <a href=${skill.homepage} target="_blank" rel="noopener noreferrer">${skill.homepage}</a>
+                </div>
+              `
             : nothing
         }
       </div>

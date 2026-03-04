@@ -16,7 +16,7 @@ import type {
 import type { ChannelKey, ChannelsChannelData, ChannelsProps } from "./channels.types.ts";
 import { formatAgo } from "../format.ts";
 import { t } from "../strings.js";
-import { renderChannelConfigSection } from "./channels.config.ts";
+import { renderChannelConfigPanel } from "./channels.config.ts";
 import { renderDiscordCard } from "./channels.discord.ts";
 import { renderGoogleChatCard } from "./channels.googlechat.ts";
 import { renderIMessageCard } from "./channels.imessage.ts";
@@ -67,6 +67,8 @@ export function renderChannels(props: ChannelsProps) {
         }),
       )}
     </section>
+
+    ${renderChannelConfigPanel(props)}
 
     <section class="card" style="margin-top: 18px;">
       <div class="row" style="justify-content: space-between;">
@@ -231,7 +233,14 @@ function renderGenericChannelCard(
           : nothing
       }
 
-      ${renderChannelConfigSection({ channelId: key, props })}
+      <div class="row" style="margin-top: 12px;">
+        <button class="btn primary" @click=${() => props.onChannelSelect(key)}>
+          ${t("channelsConfigure")}
+        </button>
+        <button class="btn" @click=${() => props.onRefresh(true)}>
+          ${t("commonRefresh")}
+        </button>
+      </div>
     </div>
   `;
 }
